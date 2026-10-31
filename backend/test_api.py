@@ -35,6 +35,8 @@ def test_all_endpoints():
     check("GET /", r)
     r = client.get("/api/health")
     check("GET /api/health", r)
+    r = client.get("/api/github/auth")
+    check("GET /api/github/auth", r)
 
     print("\n--- 2. Dashboard Endpoints (Full Suite for Frontend) ---")
     r = client.get("/api/dashboard/stats")
@@ -150,8 +152,14 @@ def test_all_endpoints():
     alerts = r.json().get("data", [])
     print(f"     Found {len(alerts)} alerts")
 
+    r = client.get("/api/alerts?severity=CRITICAL")
+    check("GET /api/alerts?severity=CRITICAL", r)
+
     if alerts:
         first_alert_id = alerts[0]["id"]
+        r = client.get(f"/api/alerts/{first_alert_id}")
+        check(f"GET /api/alerts/{first_alert_id}", r)
+
         r = client.patch(f"/api/alerts/{first_alert_id}/resolve", json={"resolved_by": "Rounak-2008"})
         check(f"PATCH /api/alerts/{first_alert_id}/resolve", r)
 

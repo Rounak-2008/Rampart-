@@ -157,6 +157,10 @@ class NetworkGraphNode(BaseModel):
     trust_score: Optional[float] = None
     status: Optional[str] = None
     avatar_url: Optional[str] = None
+    profile_url: Optional[str] = None
+    total_prs: Optional[int] = 0
+    vouches_count: Optional[int] = 0
+    denounces_count: Optional[int] = 0
 
 class NetworkGraphEdge(BaseModel):
     source: str
@@ -165,6 +169,9 @@ class NetworkGraphEdge(BaseModel):
     weight: float
     category: Optional[str] = None
     reason: Optional[str] = None
+    author: Optional[str] = None
+    evidence_url: Optional[str] = None
+    created_at: Optional[str] = None
 
 class NetworkGraphResponse(BaseModel):
     nodes: List[NetworkGraphNode]

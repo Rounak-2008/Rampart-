@@ -14,6 +14,7 @@ from app.routes.trust import router as trust_router
 from app.routes.alerts import router as alerts_router
 from app.routes.notifications import router as notifications_router
 from app.routes.webhooks import router as webhooks_router
+from app.services.github_service import verify_github_auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +59,15 @@ def root():
             "docs_url": "/docs"
         },
         message="Welcome to RAMPART — Shared Trust Network for GitHub Contributors"
+    )
+
+@app.get("/api/github/auth", response_model=APIResponse)
+async def check_github_auth():
+    auth_data = await verify_github_auth()
+    return APIResponse(
+        success=auth_data.get("authenticated", False),
+        data=auth_data,
+        message="GitHub authentication verified" if auth_data.get("authenticated") else auth_data.get("message", "Not authenticated")
     )
 
 @app.get("/api/health", response_model=APIResponse)

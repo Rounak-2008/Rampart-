@@ -79,7 +79,10 @@ def build_network_graph(conn: sqlite3.Connection) -> NetworkGraphResponse:
         ))
 
     # 2. Contributors as Nodes
-    cursor.execute("SELECT id, username, trust_score, status, avatar_url FROM contributors")
+    cursor.execute("""
+        SELECT id, username, trust_score, status, avatar_url, profile_url, total_prs, vouches_count, denounces_count
+        FROM contributors
+    """)
     contributors = cursor.fetchall()
     for c in contributors:
         nodes.append(NetworkGraphNode(
@@ -88,18 +91,36 @@ def build_network_graph(conn: sqlite3.Connection) -> NetworkGraphResponse:
             type="contributor",
             trust_score=c["trust_score"],
             status=c["status"],
-            avatar_url=c["avatar_url"]
+            avatar_url=c["avatar_url"],
+            profile_url=c["profile_url"],
+            total_prs=c["total_prs"] or 0,
+            vouches_count=c["vouches_count"] or 0,
+            denounces_count=c["denounces_count"] or 0
         ))
 
     # 3. Edges from Trust Records
     cursor.execute("""
-        SELECT tr.id, tr.contributor_id, tr.repo_id, tr.author_username, tr.type, tr.category, tr.reason, r.full_name as repo_name
+        SELECT tr.id, tr.contributor_id, tr.repo_id, tr.author_username, tr.type, tr.category, tr.reason, tr.evidence_url, tr.created_at, r.full_name as repo_name
         FROM trust_records tr
         LEFT JOIN repositories r ON tr.repo_id = r.id
     """)
     records = cursor.fetchall()
+    maintainers_added = set()
+
     for rec in records:
-        source_id = f"repo_{rec['repo_id']}" if rec["repo_id"] else f"maintainer_{rec['author_username']}"
+        if rec["repo_id"]:
+            source_id = f"repo_{rec['repo_id']}"
+        else:
+            source_id = f"maintainer_{rec['author_username']}"
+            if rec["author_username"] not in maintainers_added:
+                maintainers_added.add(rec["author_username"])
+                nodes.append(NetworkGraphNode(
+                    id=source_id,
+                    label=f"@{rec['author_username']}",
+                    type="maintainer",
+                    status="active"
+                ))
+
         target_id = f"contrib_{rec['contributor_id']}"
         weight = 1.0 if rec["type"] == "VOUCH" else -1.0
         edges.append(NetworkGraphEdge(
@@ -108,7 +129,10 @@ def build_network_graph(conn: sqlite3.Connection) -> NetworkGraphResponse:
             type=rec["type"],
             weight=weight,
             category=rec["category"],
-            reason=rec["reason"]
+            reason=rec["reason"],
+            author=rec["author_username"],
+            evidence_url=rec["evidence_url"],
+            created_at=rec["created_at"]
         ))
 
     # 4. Edges from Contributions (PRs)

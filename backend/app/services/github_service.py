@@ -22,11 +22,71 @@ def verify_webhook_signature(payload_body: bytes, signature_header: Optional[str
     computed_signature = mac.hexdigest()
     return hmac.compare_digest(expected_signature, computed_signature)
 
-async def fetch_github_repo_info(owner: str, name: str) -> Optional[Dict[str, Any]]:
-    headers = {"Accept": "application/vnd.github.v3+json"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+import os
 
+def get_github_headers() -> Dict[str, str]:
+    from app.config import GITHUB_TOKEN
+    token = os.getenv("GITHUB_TOKEN", GITHUB_TOKEN or "").strip()
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "RAMPART-Trust-Network"
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+async def verify_github_auth() -> Dict[str, Any]:
+    headers = get_github_headers()
+    has_token = "Authorization" in headers
+    if not has_token:
+        return {
+            "authenticated": False,
+            "username": None,
+            "message": "No GitHub token configured. Set GITHUB_TOKEN in backend/.env.",
+            "scopes": []
+        }
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://api.github.com/user", headers=headers)
+            if resp.status_code == 200:
+                user = resp.json()
+                raw_scopes = resp.headers.get("x-oauth-scopes", "")
+                scopes = [s.strip() for s in raw_scopes.split(",") if s.strip()]
+                return {
+                    "authenticated": True,
+                    "username": user.get("login"),
+                    "name": user.get("name"),
+                    "avatar_url": user.get("avatar_url"),
+                    "scopes": scopes,
+                    "rate_limit_remaining": resp.headers.get("x-ratelimit-remaining"),
+                    "rate_limit_limit": resp.headers.get("x-ratelimit-limit"),
+                    "status": "connected"
+                }
+            elif resp.status_code == 401:
+                return {
+                    "authenticated": False,
+                    "username": None,
+                    "message": "GitHub token is invalid or expired (401 Unauthorized).",
+                    "scopes": []
+                }
+            else:
+                return {
+                    "authenticated": False,
+                    "username": None,
+                    "message": f"GitHub API returned status {resp.status_code}.",
+                    "scopes": []
+                }
+    except Exception as e:
+        return {
+            "authenticated": False,
+            "username": None,
+            "message": f"Network error connecting to GitHub API: {str(e)}",
+            "scopes": []
+        }
+
+async def fetch_github_repo_info(owner: str, name: str) -> Optional[Dict[str, Any]]:
+    headers = get_github_headers()
     url = f"https://api.github.com/repos/{owner}/{name}"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -49,9 +109,7 @@ async def sync_repository_from_github(conn: sqlite3.Connection, repo_id: int) ->
     owner = repo["owner"]
     name = repo["name"]
 
-    headers = {"Accept": "application/vnd.github.v3+json"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    headers = get_github_headers()
 
     synced_prs = 0
     synced_contributors = 0
