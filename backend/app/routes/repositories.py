@@ -15,7 +15,8 @@ def list_repositories():
             SELECT 
                 r.*,
                 (SELECT COUNT(*) FROM pull_requests pr WHERE pr.repo_id = r.id AND pr.state = 'open') as open_prs_count,
-                (SELECT COUNT(*) FROM alerts a WHERE a.repo_id = r.id AND a.is_resolved = 0) as alerts_count
+                (SELECT COUNT(*) FROM alerts a WHERE a.repo_id = r.id AND a.is_resolved = 0) as alerts_count,
+                (SELECT COUNT(DISTINCT contributor_id) FROM pull_requests pr WHERE pr.repo_id = r.id) as contributor_count
             FROM repositories r
             ORDER BY r.created_at DESC
         """)
@@ -31,10 +32,16 @@ def list_repositories():
                 html_url=r["html_url"],
                 default_branch=r["default_branch"],
                 is_active=bool(r["is_active"]),
+                status="active" if r["is_active"] else "inactive",
                 last_synced_at=r["last_synced_at"],
+                last_sync=r["last_synced_at"],
                 created_at=r["created_at"],
+                open_prs=r["open_prs_count"],
                 open_prs_count=r["open_prs_count"],
-                alerts_count=r["alerts_count"]
+                alerts_count=r["alerts_count"],
+                alert_count=r["alerts_count"],
+                contributor_count=r["contributor_count"],
+                prs=r["open_prs_count"]
             ).model_dump()
             for r in rows
         ]
@@ -42,9 +49,17 @@ def list_repositories():
 
 @router.post("", response_model=APIResponse)
 async def connect_repository(payload: RepositoryCreate):
-    full_name = payload.full_name.strip()
+    # Support both full_name ("owner/repo") and individual owner + repo
+    if payload.full_name:
+        full_name = payload.full_name.strip()
+    elif payload.owner and (payload.repo or payload.name):
+        repo_name = payload.repo or payload.name
+        full_name = f"{payload.owner.strip()}/{repo_name.strip()}"
+    else:
+        raise HTTPException(status_code=400, detail="Repository full_name or owner/repo is required.")
+
     if "/" not in full_name:
-        raise HTTPException(status_code=400, detail="Repository full_name must be in 'owner/repo' format.")
+        raise HTTPException(status_code=400, detail="Repository must be in 'owner/repo' format.")
 
     owner, name = full_name.split("/", 1)
     now = datetime.now(timezone.utc).isoformat()
@@ -79,9 +94,15 @@ async def connect_repository(payload: RepositoryCreate):
 
         cursor.execute("SELECT * FROM repositories WHERE id = ?", (repo_id,))
         repo = cursor.fetchone()
+        repo_dict = dict(repo)
+        repo_dict["status"] = "active" if repo["is_active"] else "inactive"
+        repo_dict["open_prs"] = 0
+        repo_dict["alert_count"] = 0
+        repo_dict["last_sync"] = repo["last_synced_at"]
+
         return APIResponse(
             success=True,
-            data=dict(repo),
+            data=repo_dict,
             message=f"Repository '{full_name}' successfully connected to RAMPART."
         )
 

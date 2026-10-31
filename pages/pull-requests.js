@@ -59,17 +59,17 @@ const PULL_REQUESTS = (() => {
         '<div style="grid-column: 1/-1; text-align: center; padding: var(--space-5);"><div class="loading-spinner" style="display: inline-block;"></div> Loading pull requests...</div>';
 
       const response = await APP.api.get("/pull-requests");
-      allPullRequests = Array.isArray(response) ? response : response.pull_requests || [];
+      allPullRequests = Array.isArray(response) ? response : (response.data || response.pull_requests || []);
 
       applyFiltersAndSearch();
       renderOverview();
       renderTable();
     } catch (error) {
       console.error("Failed to load pull requests:", error);
-      showError("Failed to load pull requests. Check if the backend is running.");
+      showError("Failed to load pull requests from backend. Please check if http://127.0.0.1:8000 is running.");
       overviewContainer.innerHTML = "";
       prTbody.innerHTML =
-        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">Unable to connect to the backend. Please check if http://127.0.0.1:8000 is running.</td></tr>';
+        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">Unable to connect to backend. Please check if http://127.0.0.1:8000 is running.</td></tr>';
     }
   };
 
@@ -81,16 +81,18 @@ const PULL_REQUESTS = (() => {
 
     // Apply status filter
     if (currentFilter !== "all") {
-      filtered = filtered.filter((pr) => pr.status === currentFilter);
+      filtered = filtered.filter((pr) => {
+        const state = (pr.status || pr.state || "").toLowerCase();
+        return state === currentFilter.toLowerCase();
+      });
     }
 
     // Apply search
     if (currentSearch) {
-      filtered = filtered.filter((pr) =>
-        (pr.title + (pr.author || "") + (pr.repository || ""))
-          .toLowerCase()
-          .includes(currentSearch)
-      );
+      filtered = filtered.filter((pr) => {
+        const combined = `${pr.title} ${pr.author || pr.contributor_username || ""} ${pr.repository || pr.repo_full_name || ""}`.toLowerCase();
+        return combined.includes(currentSearch);
+      });
     }
 
     filteredPullRequests = filtered;
@@ -102,17 +104,17 @@ const PULL_REQUESTS = (() => {
    */
   const renderOverview = () => {
     const total = allPullRequests.length;
-    const open = allPullRequests.filter((pr) => pr.status === "open").length;
-    const merged = allPullRequests.filter((pr) => pr.status === "merged").length;
+    const open = allPullRequests.filter((pr) => (pr.status || pr.state) === "open").length;
+    const merged = allPullRequests.filter((pr) => (pr.status || pr.state) === "merged").length;
     const needsReview = allPullRequests.filter(
-      (pr) => pr.review_status === "pending" && pr.status === "open"
+      (pr) => (pr.review_status === "pending" || pr.risk_level === "HIGH") && (pr.status || pr.state) === "open"
     ).length;
 
     const stats = [
       { label: "Total Pull Requests", value: total },
       { label: "Open", value: open },
       { label: "Merged", value: merged },
-      { label: "Needs Review", value: needsReview },
+      { label: "Pending Review / Flagged", value: needsReview },
     ];
 
     overviewContainer.innerHTML = stats
@@ -173,8 +175,13 @@ const PULL_REQUESTS = (() => {
     const createdDate = pr.created_at
       ? new Date(pr.created_at).toLocaleDateString()
       : "Unknown";
-    const statusClass = pr.status.toLowerCase();
-    const reviewClass = (pr.review_status || "pending").toLowerCase();
+    const statusVal = (pr.status || pr.state || "open").toLowerCase();
+    const statusClass = statusVal;
+    const reviewStatus = pr.review_status || (pr.risk_level === "HIGH" ? "changes_requested" : (statusVal === "merged" ? "approved" : "pending"));
+    const reviewClass = reviewStatus.toLowerCase();
+    const prNumber = pr.number ?? pr.pr_number ?? "?";
+    const authorName = pr.author || pr.contributor_username || "—";
+    const repoName = pr.repository || pr.repo_full_name || "—";
 
     return `
       <tr>
@@ -183,25 +190,26 @@ const PULL_REQUESTS = (() => {
             <span class="pr-icon">🔀</span>
             <div class="pr-info">
               <div class="pr-title" data-pr-id="${pr.id}">${escapeHtml(pr.title)}</div>
-              <div class="pr-number">#${pr.number || "?"}</div>
+              <div class="pr-number">#${prNumber}</div>
             </div>
           </div>
         </td>
         <td>
-          <div class="pr-repo">${escapeHtml(pr.repository || "—")}</div>
+          <div class="pr-repo">${escapeHtml(repoName)}</div>
         </td>
-        <td>${escapeHtml(pr.author || "—")}</td>
         <td>
-          <span class="status-badge ${statusClass}">${
-      pr.status.charAt(0).toUpperCase() + pr.status.slice(1)
-    }</span>
+          <span style="font-weight: var(--font-weight-medium);">${escapeHtml(authorName)}</span>
+          ${pr.contributor_trust_score ? `<span style="font-size: 11px; color: var(--color-text-secondary); margin-left: 4px;">(${pr.contributor_trust_score})</span>` : ""}
+        </td>
+        <td>
+          <span class="status-badge ${statusClass}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
         </td>
         <td>
           <span class="review-badge ${reviewClass}">${
-      pr.review_status === "approved"
+      reviewStatus === "approved"
         ? "Approved"
-        : pr.review_status === "changes_requested"
-          ? "Changes"
+        : reviewStatus === "changes_requested"
+          ? "Changes Requested"
           : "Pending"
     }</span>
         </td>
@@ -213,7 +221,7 @@ const PULL_REQUESTS = (() => {
             <button class="action-btn btn-view-pr" data-pr-id="${pr.id}" title="View details">
               👁️ View
             </button>
-            <button class="action-btn btn-analyze-pr" data-pr-id="${pr.id}" title="Analyze with AI">
+            <button class="action-btn btn-analyze-pr" data-pr-id="${pr.id}" title="Run pattern analysis">
               ✨ Analyze
             </button>
           </div>
@@ -235,40 +243,46 @@ const PULL_REQUESTS = (() => {
       return;
     }
 
+    const prNumber = pr.number ?? pr.pr_number ?? "?";
+    const repoName = pr.repository || pr.repo_full_name || "—";
+    const authorName = pr.author || pr.contributor_username || "Unknown";
+    const statusVal = pr.status || pr.state || "open";
+    const reviewStatus = pr.review_status || (pr.risk_level === "HIGH" ? "changes_requested" : (statusVal === "merged" ? "approved" : "pending"));
+
     // Set header info
     document.getElementById("modal-pr-title").textContent = pr.title;
-    document.getElementById("modal-pr-number").textContent = `#${
-      pr.number || "?"
-    } in ${pr.repository}`;
+    document.getElementById("modal-pr-number").textContent = `#${prNumber} in ${repoName}`;
 
     // Build details HTML
     let detailsHTML = `
       <div class="pr-details-section">
         <div class="pr-details-label">Author</div>
-        <div class="pr-details-value">${escapeHtml(pr.author || "Unknown")}</div>
+        <div class="pr-details-value">
+          <strong>${escapeHtml(authorName)}</strong>
+          ${pr.contributor_trust_score !== undefined ? ` • Trust Score: ${pr.contributor_trust_score}/100 (${pr.contributor_status || 'NEW'})` : ""}
+        </div>
       </div>
 
       <div class="pr-details-section">
         <div class="pr-details-label">Repository</div>
-        <div class="pr-details-value">${escapeHtml(pr.repository || "—")}</div>
+        <div class="pr-details-value">${escapeHtml(repoName)}</div>
       </div>
 
       <div class="pr-details-section">
         <div class="pr-details-label">Status</div>
         <div class="pr-details-value">
-          <span class="status-badge ${pr.status}">${
-      pr.status.charAt(0).toUpperCase() + pr.status.slice(1)
-    }</span>
+          <span class="status-badge ${statusVal}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
+          ${pr.risk_level ? `<span class="review-badge ${pr.risk_level === 'HIGH' ? 'changes_requested' : 'approved'}" style="margin-left: 8px;">Risk: ${pr.risk_level}</span>` : ""}
         </div>
       </div>
 
       <div class="pr-details-section">
         <div class="pr-details-label">Review Status</div>
         <div class="pr-details-value">
-          <span class="review-badge ${pr.review_status || "pending"}">${
-      pr.review_status === "approved"
+          <span class="review-badge ${reviewStatus}">${
+      reviewStatus === "approved"
         ? "Approved"
-        : pr.review_status === "changes_requested"
+        : reviewStatus === "changes_requested"
           ? "Changes Requested"
           : "Pending Review"
     }</span>
@@ -284,42 +298,36 @@ const PULL_REQUESTS = (() => {
     `;
 
     // Add description if available
-    if (pr.description) {
+    const desc = pr.description || pr.body;
+    if (desc) {
       detailsHTML += `
         <div class="pr-details-section">
           <div class="pr-details-label">Description</div>
-          <div class="pr-details-description">${escapeHtml(pr.description)}</div>
+          <div class="pr-details-description">${escapeHtml(desc)}</div>
         </div>
       `;
     }
 
-    // Add file changes if available
-    if (pr.files_changed) {
+    // Add file changes
+    if (pr.files_changed !== undefined) {
       detailsHTML += `
         <div class="pr-details-section">
-          <div class="pr-details-label">Files Changed</div>
-          <div class="pr-details-value">${pr.files_changed} files</div>
-        </div>
-      `;
-    }
-
-    // Add commits info if available
-    if (pr.commits) {
-      detailsHTML += `
-        <div class="pr-details-section">
-          <div class="pr-details-label">Commits</div>
-          <div class="pr-details-value">${pr.commits} commits</div>
-        </div>
-      `;
-    }
-
-    // Add reviews if available
-    if (pr.reviews && Array.isArray(pr.reviews) && pr.reviews.length > 0) {
-      detailsHTML += `
-        <div class="pr-details-section">
-          <div class="pr-details-label">Reviews</div>
+          <div class="pr-details-label">Code Changes</div>
           <div class="pr-details-value">
-            ${pr.reviews.map((r) => `${escapeHtml(r.reviewer)}: ${r.status}`).join(", ")}
+            ${pr.files_changed} file(s) changed
+            ${(pr.additions || pr.deletions) ? ` (+${pr.additions || 0} / -${pr.deletions || 0})` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    // Add analysis summary if available
+    if (pr.analysis_summary) {
+      detailsHTML += `
+        <div class="pr-details-section">
+          <div class="pr-details-label">Analysis Summary</div>
+          <div class="pr-details-description" style="background: var(--color-surface); padding: var(--space-3); border-radius: var(--radius-md); border-left: 3px solid var(--color-primary);">
+            ${escapeHtml(pr.analysis_summary)}
           </div>
         </div>
       `;
@@ -338,7 +346,7 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Analyze PR with backend AI
+   * Analyze PR with backend pattern engine
    */
   const handleAnalyze = async (prId) => {
     const pr = allPullRequests.find((p) => p.id === prId || p.id === parseInt(prId));
@@ -349,28 +357,34 @@ const PULL_REQUESTS = (() => {
     }
 
     try {
-      // First open the details modal if not already open
       if (!detailsModal.classList.contains("open")) {
         await openDetailsModal(prId);
       }
 
       // Show loading state
-      const analysisSection =
-        modalBody.querySelector(".pr-analysis-section") || document.createElement("div");
-      analysisSection.innerHTML =
-        '<div class="pr-analysis-title"><div class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></div>Analyzing PR...</div>';
-      if (!modalBody.querySelector(".pr-analysis-section")) {
+      let analysisSection = modalBody.querySelector(".pr-analysis-section");
+      if (!analysisSection) {
+        analysisSection = document.createElement("div");
+        analysisSection.className = "pr-details-section pr-analysis-section";
         modalBody.appendChild(analysisSection);
       }
+
+      analysisSection.innerHTML =
+        '<div class="pr-analysis-title"><div class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></div>Analyzing PR across RAMPART Trust Network...</div>';
 
       // Call backend analysis endpoint
       const analysisResult = await APP.api.post(`/pull-requests/${prId}/analyze`, {});
 
       // Render analysis results
       renderAnalysisResults(analysisSection, analysisResult, pr);
+
+      // Refresh list in background to reflect updated risk level
+      const updatedList = await APP.api.get("/pull-requests");
+      allPullRequests = Array.isArray(updatedList) ? updatedList : (updatedList.data || allPullRequests);
+      applyFiltersAndSearch();
     } catch (error) {
       console.error("Failed to analyze PR:", error);
-      showError("Failed to analyze pull request. Please try again.");
+      showError("Failed to analyze pull request: " + (error.message || "Network error"));
     }
   };
 
@@ -378,22 +392,30 @@ const PULL_REQUESTS = (() => {
    * Render PR analysis results
    */
   const renderAnalysisResults = (container, analysis, pr) => {
-    let html = '<div class="pr-analysis-title">Analysis Results</div>';
+    let html = `
+      <div class="pr-analysis-title" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>RAMPART Trust Engine Analysis</span>
+        <span class="review-badge ${analysis.risk_level === 'HIGH' ? 'changes_requested' : 'approved'}">Risk: ${analysis.risk_level}</span>
+      </div>
+    `;
 
-    if (analysis.findings && Array.isArray(analysis.findings) && analysis.findings.length > 0) {
-      html += '<div class="pr-analysis-findings">';
+    const findings = analysis.findings || [];
 
-      analysis.findings.forEach((finding) => {
-        const findingClass = finding.severity === "warning" ? "warning" : "caution";
+    if (findings.length > 0) {
+      html += '<div class="pr-analysis-findings" style="margin-top: var(--space-3);">';
+
+      findings.forEach((finding) => {
+        const severity = (finding.severity || "info").toLowerCase();
+        const findingClass = severity === "caution" ? "danger" : (severity === "warning" ? "warning" : "info");
         html += `
-          <div class="pr-analysis-finding ${findingClass}">
-            <div class="pr-analysis-finding-title">${escapeHtml(finding.title)}</div>
-            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+          <div class="alert alert-${findingClass}" style="margin-bottom: var(--space-3); padding: var(--space-3);">
+            <div style="font-weight: var(--font-weight-semibold);">${escapeHtml(finding.title)}</div>
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 4px;">
               ${escapeHtml(finding.description || "")}
             </div>
             ${
               finding.evidence
-                ? `<div class="pr-analysis-finding-evidence">
+                ? `<div style="font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(0,0,0,0.04); border-radius: 4px;">
                   <strong>Evidence:</strong> ${escapeHtml(finding.evidence)}
                 </div>`
                 : ""
@@ -403,18 +425,24 @@ const PULL_REQUESTS = (() => {
       });
 
       html += "</div>";
+    } else if (analysis.analysis_summary) {
+      html += `
+        <div style="color: var(--color-text-primary); font-size: var(--font-size-sm); margin-top: var(--space-2);">
+          ${escapeHtml(analysis.analysis_summary)}
+        </div>
+      `;
     } else {
       html += `
-        <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
-          No significant findings. PR appears healthy.
+        <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-2);">
+          No suspicious signals detected. PR appears healthy.
         </div>
       `;
     }
 
-    // Add important note about AI analysis
+    // Maintainer sovereignty note
     html += `
-      <div class="pr-analysis-note">
-        <strong>Note:</strong> This AI analysis is informational only. The final decision to approve or request changes always rests with the maintainer. Verify findings independently before taking action.
+      <div class="pr-analysis-note" style="margin-top: var(--space-3); font-size: 11px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: var(--space-2);">
+        <strong>Note:</strong> RAMPART analysis is informational and evidence-backed. Maintainers retain complete authority for merge, review, and contributor actions.
       </div>
     `;
 
@@ -430,11 +458,14 @@ const PULL_REQUESTS = (() => {
     alert.innerHTML = `
       <div class="alert__icon">✕</div>
       <div class="alert__content">
-        <div class="alert__message">${message}</div>
+        <div class="alert__message">${escapeHtml(message)}</div>
       </div>
     `;
-    document.querySelector(".app-main__inner").insertBefore(alert, document.querySelector(".page-header").nextSibling);
-    setTimeout(() => alert.remove(), 5000);
+    const target = document.querySelector(".page-header");
+    if (target && target.parentNode) {
+      target.parentNode.insertBefore(alert, target.nextSibling);
+      setTimeout(() => alert.remove(), 5000);
+    }
   };
 
   const showSuccess = (message) => {
@@ -443,19 +474,23 @@ const PULL_REQUESTS = (() => {
     alert.innerHTML = `
       <div class="alert__icon">✓</div>
       <div class="alert__content">
-        <div class="alert__message">${message}</div>
+        <div class="alert__message">${escapeHtml(message)}</div>
       </div>
     `;
-    document.querySelector(".app-main__inner").insertBefore(alert, document.querySelector(".page-header").nextSibling);
-    setTimeout(() => alert.remove(), 5000);
+    const target = document.querySelector(".page-header");
+    if (target && target.parentNode) {
+      target.parentNode.insertBefore(alert, target.nextSibling);
+      setTimeout(() => alert.remove(), 5000);
+    }
   };
 
   /**
    * Utility: Escape HTML to prevent XSS
    */
   const escapeHtml = (text) => {
+    if (!text) return "";
     const div = document.createElement("div");
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
   };
 

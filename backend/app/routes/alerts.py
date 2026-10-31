@@ -46,19 +46,23 @@ def list_alerts(
                 id=r["id"],
                 repo_id=r["repo_id"],
                 repo_full_name=r["repo_full_name"],
+                repository=r["repo_full_name"] or "Network",
                 pr_id=r["pr_id"],
                 pr_number=r["pr_number"],
                 pr_title=r["pr_title"],
                 contributor_id=r["contributor_id"],
                 contributor_username=r["contributor_username"],
-                severity=r["severity"],
+                contributor=f"@{r['contributor_username']}",
+                type=r["pattern_type"].replace("_", " ").title(),
+                severity=r["severity"].lower(),
                 pattern_type=r["pattern_type"],
                 message=r["message"],
                 evidence_details=r["evidence_details"],
                 is_resolved=bool(r["is_resolved"]),
                 resolved_by=r["resolved_by"],
                 resolved_at=r["resolved_at"],
-                created_at=r["created_at"]
+                created_at=r["created_at"],
+                date="Recent"
             ).model_dump()
             for r in rows
         ]

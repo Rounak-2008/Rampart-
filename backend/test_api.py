@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 # Add backend directory to path
@@ -35,12 +36,29 @@ def test_all_endpoints():
     r = client.get("/api/health")
     check("GET /api/health", r)
 
-    print("\n--- 2. Dashboard ---")
+    print("\n--- 2. Dashboard Endpoints (Full Suite for Frontend) ---")
     r = client.get("/api/dashboard/stats")
     check("GET /api/dashboard/stats", r)
     stats = r.json().get("data", {})
     print(f"     Stats: Repos={stats.get('total_repositories')}, PRs={stats.get('active_pull_requests')}, Contributors={stats.get('analyzed_contributors')}, Alerts={stats.get('active_alerts')}")
     
+    r = client.get("/api/dashboard/metrics")
+    check("GET /api/dashboard/metrics", r)
+
+    r = client.get("/api/dashboard/pr-activity")
+    check("GET /api/dashboard/pr-activity", r)
+    print(f"     PR Activity data points: {len(r.json().get('data', []))}")
+
+    r = client.get("/api/dashboard/trust-overview")
+    check("GET /api/dashboard/trust-overview", r)
+    print(f"     Trust Overview: {r.json().get('data', {})}")
+
+    r = client.get("/api/dashboard/trusted-contributors")
+    check("GET /api/dashboard/trusted-contributors", r)
+
+    r = client.get("/api/dashboard/alerts")
+    check("GET /api/dashboard/alerts", r)
+
     r = client.get("/api/dashboard/activity")
     check("GET /api/dashboard/activity", r)
 
@@ -50,14 +68,15 @@ def test_all_endpoints():
     repos = r.json().get("data", [])
     print(f"     Found {len(repos)} connected repositories")
 
-    # Connect a test repo
+    # Connect with { owner, repo } (format sent by Claude Code frontend)
+    ts = int(time.time())
     test_repo = {
-        "full_name": "sample-org/demo-security-suite",
-        "description": "Zero trust policy management demo",
-        "webhook_secret": "sample_secret_key"
+        "owner": "sample-org",
+        "repo": f"test-suite-{ts}",
+        "description": "Zero trust policy management demo"
     }
     r = client.post("/api/repositories", json=test_repo)
-    check("POST /api/repositories", r)
+    check("POST /api/repositories (owner/repo format)", r)
     new_repo_id = r.json().get("data", {}).get("id")
 
     # Sync repo
@@ -74,9 +93,12 @@ def test_all_endpoints():
     r = client.get(f"/api/pull-requests/{first_pr_id}")
     check(f"GET /api/pull-requests/{first_pr_id}", r)
 
+    # Analyze PR (verifying findings format expected by Claude Code frontend)
     r = client.post(f"/api/pull-requests/{first_pr_id}/analyze")
     check(f"POST /api/pull-requests/{first_pr_id}/analyze", r)
-    print(f"     Analysis Result: Risk={r.json().get('data', {}).get('risk_level')}")
+    analysis = r.json().get("data", {})
+    findings = analysis.get("findings", [])
+    print(f"     Analysis: Risk={analysis.get('risk_level')}, Findings={len(findings)}")
 
     print("\n--- 5. Contributors ---")
     r = client.get("/api/contributors")
@@ -148,11 +170,9 @@ def test_all_endpoints():
     check("POST /api/notifications/mark-all-read", r)
 
     print("\n--- 10. Webhooks ---")
-    # Ping
     r = client.post("/api/webhooks/github", headers={"X-GitHub-Event": "ping"}, json={"zen": "Non-blocking is better than blocking."})
     check("POST /api/webhooks/github (ping)", r)
 
-    # PR Event
     pr_payload = {
         "action": "opened",
         "repository": {
@@ -163,11 +183,11 @@ def test_all_endpoints():
         },
         "pull_request": {
             "id": 88881,
-            "number": 99,
+            "number": 199,
             "title": "feat(api): optimize response payload formatting",
             "body": "Streamlines JSON serialization for all endpoints.",
-            "html_url": "https://github.com/Rounak-2008/Rampart-/pull/99",
-            "diff_url": "https://github.com/Rounak-2008/Rampart-/pull/99.diff",
+            "html_url": "https://github.com/Rounak-2008/Rampart-/pull/199",
+            "diff_url": "https://github.com/Rounak-2008/Rampart-/pull/199.diff",
             "state": "open",
             "changed_files": 2,
             "additions": 40,
@@ -192,7 +212,7 @@ def test_all_endpoints():
     print(f"==========================================")
 
     if passed == total:
-        print("🚀 All endpoints operational and verified successfully!")
+        print("🚀 All frontend & backend integration endpoints verified successfully!")
         return 0
     else:
         print("⚠️ Some endpoints failed.")

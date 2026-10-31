@@ -52,6 +52,7 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
     risk_level = "LOW"
     analysis_points = []
     generated_alerts = []
+    findings = []
 
     # Rule A: Check Denouncements
     if len(denounces) > 0:
@@ -59,17 +60,24 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         source_repos = ", ".join([d["source_repo"] or "independent maintainer" for d in denounces])
         msg = f"Evidence Alert: Contributor has {len(denounces)} active Denouncement(s) across network repos ({source_repos})."
         analysis_points.append(msg)
+        evidence_str = "; ".join([f"{d['reason']} ({d['evidence_url']})" for d in denounces])
+
+        findings.append({
+            "title": "Cross-Repository Abuse History",
+            "description": f"Contributor '{pr['username']}' has {len(denounces)} verified Denouncement(s) on record from maintainers of {source_repos}.",
+            "evidence": evidence_str,
+            "severity": "caution"
+        })
 
         # Check if an alert already exists for this PR
         cursor.execute("""
             SELECT id FROM alerts WHERE pr_id = ? AND pattern_type = 'CROSS_REPO_SPAM_HISTORY'
         """, (pr_id,))
         if not cursor.fetchone():
-            evidence = f"Referenced denouncements: " + "; ".join([f"{d['reason']} ({d['evidence_url']})" for d in denounces])
             cursor.execute("""
                 INSERT INTO alerts (repo_id, pr_id, contributor_id, severity, pattern_type, message, evidence_details, is_resolved, created_at)
                 VALUES (?, ?, ?, 'CRITICAL', 'CROSS_REPO_SPAM_HISTORY', ?, ?, 0, ?)
-            """, (repo_id, pr_id, contributor_id, msg, evidence, now))
+            """, (repo_id, pr_id, contributor_id, msg, evidence_str, now))
             generated_alerts.append(msg)
 
     # Rule B: Check for Cross-Repo Duplicate PR submissions
@@ -77,16 +85,23 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         risk_level = "MEDIUM"
         msg = f"Pattern Notice: Contributor opened identical PR title across {len(duplicate_titles) + 1} connected repositories."
         analysis_points.append(msg)
+        evidence_str = "Matches titles in: " + ", ".join([f"{d['repo_name']} #{d['pr_number']}" for d in duplicate_titles])
+
+        findings.append({
+            "title": "Multi-Repository Duplicate PR Pattern",
+            "description": f"Identical PR title submitted across {len(duplicate_titles) + 1} separate repositories within recent time window.",
+            "evidence": evidence_str,
+            "severity": "warning"
+        })
 
         cursor.execute("""
             SELECT id FROM alerts WHERE pr_id = ? AND pattern_type = 'CROSS_REPO_DUPLICATE_PR'
         """, (pr_id,))
         if not cursor.fetchone():
-            evidence = f"Matches titles in: " + ", ".join([f"{d['repo_name']} #{d['pr_number']}" for d in duplicate_titles])
             cursor.execute("""
                 INSERT INTO alerts (repo_id, pr_id, contributor_id, severity, pattern_type, message, evidence_details, is_resolved, created_at)
                 VALUES (?, ?, ?, 'WARNING', 'CROSS_REPO_DUPLICATE_PR', ?, ?, 0, ?)
-            """, (repo_id, pr_id, contributor_id, msg, evidence, now))
+            """, (repo_id, pr_id, contributor_id, msg, evidence_str, now))
             generated_alerts.append(msg)
 
     # Rule C: New Contributor (Strictly Fair Baseline)
@@ -94,6 +109,13 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         risk_level = "UNKNOWN"
         msg = "New Contributor: No previous trust records found in the network. Standard first-time code review recommended."
         analysis_points.append(msg)
+
+        findings.append({
+            "title": "New Contributor (Good Standing)",
+            "description": "First contribution interaction with RAMPART network. Contributor has zero abuse reports and is treated with neutral good faith.",
+            "evidence": "No prior cross-repository history. Standard code review advised.",
+            "severity": "info"
+        })
 
         cursor.execute("""
             SELECT id FROM alerts WHERE pr_id = ? AND pattern_type = 'NEW_CONTRIBUTOR'
@@ -113,9 +135,22 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         msg = f"Verified Contributor: Backed by {len(vouches)} positive Vouch(es) from {vouch_sources}."
         analysis_points.append(msg)
 
+        findings.append({
+            "title": "Verified Peer Vouches",
+            "description": f"Contributor '{pr['username']}' is endorsed by maintainers of {vouch_sources}.",
+            "evidence": "; ".join([f"{v['reason']} ({v['evidence_url']})" for v in vouches]),
+            "severity": "info"
+        })
+
     else:
         risk_level = "LOW"
         analysis_points.append("Standard contribution. No network anomalies detected.")
+        findings.append({
+            "title": "Standard PR Submission",
+            "description": "Code and contributor profile check out normally. No duplicate submissions or reports.",
+            "evidence": None,
+            "severity": "info"
+        })
 
     summary = " | ".join(analysis_points)
 
@@ -132,5 +167,6 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         "analysis_summary": summary,
         "vouches_count": len(vouches),
         "denounces_count": len(denounces),
-        "generated_alerts": generated_alerts
+        "generated_alerts": generated_alerts,
+        "findings": findings
     }

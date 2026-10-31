@@ -102,11 +102,11 @@ const APP = (() => {
   };
 
   /**
-   * API helper — for future backend integration.
-   * Provides a consistent way to call backend endpoints.
+   * API helper for backend integration.
+   * Provides consistent communication with the FastAPI backend.
    */
   const api = {
-    baseUrl: (typeof window !== "undefined" && window.API_BASE_URL) || "http://localhost:8000/api",
+    baseUrl: (typeof window !== "undefined" && window.API_BASE_URL) || "http://127.0.0.1:8000/api",
 
     async get(endpoint) {
       try {
@@ -117,9 +117,18 @@ const APP = (() => {
           },
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          let errDetail = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errJson.message || errDetail;
+          } catch (_) {}
+          throw new Error(errDetail);
         }
-        return await response.json();
+        const result = await response.json();
+        if (result && typeof result === "object" && "data" in result && result.data !== undefined) {
+          return result.data;
+        }
+        return result;
       } catch (error) {
         console.error(`GET ${endpoint} failed:`, error);
         throw error;
@@ -136,9 +145,18 @@ const APP = (() => {
           body: JSON.stringify(data),
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          let errDetail = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errJson.message || errDetail;
+          } catch (_) {}
+          throw new Error(errDetail);
         }
-        return await response.json();
+        const result = await response.json();
+        if (result && typeof result === "object" && "data" in result && result.data !== undefined) {
+          return result.data;
+        }
+        return result;
       } catch (error) {
         console.error(`POST ${endpoint} failed:`, error);
         throw error;
@@ -155,11 +173,48 @@ const APP = (() => {
           body: JSON.stringify(data),
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          let errDetail = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errJson.message || errDetail;
+          } catch (_) {}
+          throw new Error(errDetail);
         }
-        return await response.json();
+        const result = await response.json();
+        if (result && typeof result === "object" && "data" in result && result.data !== undefined) {
+          return result.data;
+        }
+        return result;
       } catch (error) {
         console.error(`PUT ${endpoint} failed:`, error);
+        throw error;
+      }
+    },
+
+    async patch(endpoint, data) {
+      try {
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data || {}),
+        });
+        if (!response.ok) {
+          let errDetail = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errJson.message || errDetail;
+          } catch (_) {}
+          throw new Error(errDetail);
+        }
+        const result = await response.json();
+        if (result && typeof result === "object" && "data" in result && result.data !== undefined) {
+          return result.data;
+        }
+        return result;
+      } catch (error) {
+        console.error(`PATCH ${endpoint} failed:`, error);
         throw error;
       }
     },
@@ -173,9 +228,14 @@ const APP = (() => {
           },
         });
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          let errDetail = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errJson.message || errDetail;
+          } catch (_) {}
+          throw new Error(errDetail);
         }
-        return response.ok;
+        return true;
       } catch (error) {
         console.error(`DELETE ${endpoint} failed:`, error);
         throw error;

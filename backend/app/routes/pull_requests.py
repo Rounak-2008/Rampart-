@@ -7,6 +7,13 @@ import sqlite3
 
 router = APIRouter(prefix="/api/pull-requests", tags=["Pull Requests"])
 
+def map_review_status(risk_level: str, state: str) -> str:
+    if risk_level == "HIGH":
+        return "changes_requested"
+    if state == "merged":
+        return "approved"
+    return "pending"
+
 @router.get("", response_model=APIResponse)
 def list_pull_requests(
     repo_id: Optional[int] = Query(None, description="Filter by repository ID"),
@@ -47,22 +54,29 @@ def list_pull_requests(
                 github_pr_id=r["github_pr_id"],
                 repo_id=r["repo_id"],
                 repo_full_name=r["repo_full_name"],
+                repository=r["repo_full_name"],
                 contributor_id=r["contributor_id"],
                 contributor_username=r["contributor_username"],
+                author=r["contributor_username"],
                 contributor_avatar_url=r["contributor_avatar_url"],
                 contributor_trust_score=r["contributor_trust_score"],
                 contributor_status=r["contributor_status"],
                 pr_number=r["pr_number"],
+                number=r["pr_number"],
                 title=r["title"],
                 body=r["body"],
+                description=r["body"],
                 html_url=r["html_url"],
                 diff_url=r["diff_url"],
                 state=r["state"],
+                status=r["state"],
                 risk_level=r["risk_level"],
+                review_status=map_review_status(r["risk_level"], r["state"]),
                 analysis_summary=r["analysis_summary"],
                 files_changed=r["files_changed"],
                 additions=r["additions"],
                 deletions=r["deletions"],
+                commits=1,
                 created_at=r["created_at"],
                 updated_at=r["updated_at"]
             ).model_dump()
@@ -103,22 +117,29 @@ def get_pull_request(pr_id: int):
             github_pr_id=row["github_pr_id"],
             repo_id=row["repo_id"],
             repo_full_name=row["repo_full_name"],
+            repository=row["repo_full_name"],
             contributor_id=row["contributor_id"],
             contributor_username=row["contributor_username"],
+            author=row["contributor_username"],
             contributor_avatar_url=row["contributor_avatar_url"],
             contributor_trust_score=row["contributor_trust_score"],
             contributor_status=row["contributor_status"],
             pr_number=row["pr_number"],
+            number=row["pr_number"],
             title=row["title"],
             body=row["body"],
+            description=row["body"],
             html_url=row["html_url"],
             diff_url=row["diff_url"],
             state=row["state"],
+            status=row["state"],
             risk_level=row["risk_level"],
+            review_status=map_review_status(row["risk_level"], row["state"]),
             analysis_summary=row["analysis_summary"],
             files_changed=row["files_changed"],
             additions=row["additions"],
             deletions=row["deletions"],
+            commits=1,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             contributor_vouches=row["contributor_vouches"],

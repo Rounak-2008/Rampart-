@@ -75,14 +75,14 @@ const REPOSITORIES = (() => {
         '<div style="grid-column: 1/-1; text-align: center; padding: var(--space-5);"><div class="loading-spinner" style="display: inline-block;"></div> Loading repositories...</div>';
 
       const response = await APP.api.get("/repositories");
-      allRepositories = Array.isArray(response) ? response : response.repositories || [];
+      allRepositories = Array.isArray(response) ? response : (response.data || response.repositories || []);
 
       applyFiltersAndSearch();
       renderOverview();
       renderTable();
     } catch (error) {
       console.error("Failed to load repositories:", error);
-      showError("Failed to load repositories. Check if the backend is running.");
+      showError("Failed to load repositories from backend. Please check if http://127.0.0.1:8000 is running.");
       overviewContainer.innerHTML = "";
       reposTbody.innerHTML =
         '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">Unable to connect to the backend. Please check if http://127.0.0.1:8000 is running.</td></tr>';
@@ -97,15 +97,15 @@ const REPOSITORIES = (() => {
 
     // Apply status filter
     if (currentFilter === "active") {
-      filtered = filtered.filter((r) => r.status === "active");
+      filtered = filtered.filter((r) => r.status === "active" || r.is_active);
     } else if (currentFilter === "inactive") {
-      filtered = filtered.filter((r) => r.status !== "active");
+      filtered = filtered.filter((r) => r.status === "inactive" || !r.is_active);
     }
 
     // Apply search
     if (currentSearch) {
       filtered = filtered.filter((r) =>
-        (r.name + r.owner).toLowerCase().includes(currentSearch)
+        (r.name + (r.owner || "") + (r.full_name || "")).toLowerCase().includes(currentSearch)
       );
     }
 
@@ -118,9 +118,9 @@ const REPOSITORIES = (() => {
    */
   const renderOverview = () => {
     const total = allRepositories.length;
-    const active = allRepositories.filter((r) => r.status === "active").length;
-    const totalOpenPRs = allRepositories.reduce((sum, r) => sum + (r.open_prs || 0), 0);
-    const totalAlerts = allRepositories.reduce((sum, r) => sum + (r.alert_count || 0), 0);
+    const active = allRepositories.filter((r) => r.status === "active" || r.is_active).length;
+    const totalOpenPRs = allRepositories.reduce((sum, r) => sum + (r.open_prs || r.open_prs_count || 0), 0);
+    const totalAlerts = allRepositories.reduce((sum, r) => sum + (r.alert_count || r.alerts_count || 0), 0);
 
     const stats = [
       { label: "Total Repositories", value: total },
@@ -184,11 +184,14 @@ const REPOSITORIES = (() => {
    * Render single repository row
    */
   const renderRepositoryRow = (repo) => {
-    const syncTime = repo.last_sync
-      ? new Date(repo.last_sync).toLocaleString()
-      : "Never";
-    const statusClass = repo.status === "active" ? "" : "inactive";
-    const statusText = repo.status === "active" ? "Active" : "Inactive";
+    const syncVal = repo.last_sync || repo.last_synced_at;
+    const syncTime = syncVal ? new Date(syncVal).toLocaleString() : "Never";
+    const isActive = repo.status === "active" || repo.is_active;
+    const statusClass = isActive ? "" : "inactive";
+    const statusText = isActive ? "Active" : "Inactive";
+    const openPRs = repo.open_prs ?? repo.open_prs_count ?? 0;
+    const alertsCount = repo.alert_count ?? repo.alerts_count ?? 0;
+    const contribs = repo.contributor_count ?? "—";
 
     return `
       <tr>
@@ -197,22 +200,22 @@ const REPOSITORIES = (() => {
             <span class="repo-icon">📦</span>
             <div class="repo-info">
               <div class="repo-name">${escapeHtml(repo.name)}</div>
-              <div class="repo-owner">${escapeHtml(repo.owner)}</div>
+              <div class="repo-owner">${escapeHtml(repo.owner || "")}</div>
             </div>
           </div>
         </td>
         <td>
           <span class="status-badge ${statusClass}">${statusText}</span>
         </td>
-        <td>${repo.open_prs || 0}</td>
-        <td>${repo.contributor_count || "—"}</td>
-        <td>${repo.alert_count || 0}</td>
+        <td>${openPRs}</td>
+        <td>${contribs}</td>
+        <td>${alertsCount}</td>
         <td>
           <span class="sync-time">${syncTime}</span>
         </td>
         <td>
           <div class="repo-actions">
-            <button class="action-btn btn-sync" data-repo-id="${repo.id}" title="Sync repository">
+            <button class="action-btn btn-sync" data-repo-id="${repo.id}" title="Sync repository with GitHub">
               ⟳ Sync
             </button>
             <button class="action-btn danger btn-disconnect" data-repo-id="${repo.id}" title="Disconnect repository">
@@ -272,13 +275,14 @@ const REPOSITORIES = (() => {
       connectSubmitBtn.innerHTML =
         '<span class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></span>Connecting...';
 
-      const response = await APP.api.post("/repositories", {
+      await APP.api.post("/repositories", {
+        full_name: `${owner.trim()}/${repo.trim()}`,
         owner: owner.trim(),
         repo: repo.trim(),
       });
 
       closeConnectModal();
-      showSuccess("Repository connected successfully");
+      showSuccess(`Repository ${owner.trim()}/${repo.trim()} connected successfully`);
       await loadRepositories();
     } catch (error) {
       console.error("Failed to connect repository:", error);
@@ -296,22 +300,27 @@ const REPOSITORIES = (() => {
    */
   const handleSync = async (repoId) => {
     const btn = document.querySelector(`[data-repo-id="${repoId}"].btn-sync`);
-    const originalText = btn.innerHTML;
+    const originalText = btn ? btn.innerHTML : "⟳ Sync";
 
     try {
-      btn.disabled = true;
-      btn.innerHTML =
-        '<span class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></span>Syncing...';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></span>Syncing...';
+      }
 
       await APP.api.post(`/repositories/${repoId}/sync`, {});
 
-      showSuccess("Repository synced successfully");
+      showSuccess("Repository synced successfully with GitHub");
       await loadRepositories();
     } catch (error) {
       console.error("Failed to sync repository:", error);
-      showError("Failed to sync repository");
-      btn.innerHTML = originalText;
-      btn.disabled = false;
+      showError("Failed to sync repository: " + (error.message || "Network error"));
+    } finally {
+      if (btn) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
     }
   };
 
@@ -333,11 +342,11 @@ const REPOSITORIES = (() => {
 
       await APP.api.delete(`/repositories/${repoId}`);
 
-      showSuccess("Repository disconnected");
+      showSuccess("Repository disconnected from trust network");
       await loadRepositories();
     } catch (error) {
       console.error("Failed to disconnect repository:", error);
-      showError("Failed to disconnect repository");
+      showError("Failed to disconnect repository: " + (error.message || "Error"));
     }
   };
 
@@ -368,11 +377,14 @@ const REPOSITORIES = (() => {
     alert.innerHTML = `
       <div class="alert__icon">✕</div>
       <div class="alert__content">
-        <div class="alert__message">${message}</div>
+        <div class="alert__message">${escapeHtml(message)}</div>
       </div>
     `;
-    document.querySelector(".app-main__inner").insertBefore(alert, document.querySelector(".page-header").nextSibling);
-    setTimeout(() => alert.remove(), 5000);
+    const target = document.querySelector(".page-header");
+    if (target && target.parentNode) {
+      target.parentNode.insertBefore(alert, target.nextSibling);
+      setTimeout(() => alert.remove(), 5000);
+    }
   };
 
   const showSuccess = (message) => {
@@ -381,19 +393,23 @@ const REPOSITORIES = (() => {
     alert.innerHTML = `
       <div class="alert__icon">✓</div>
       <div class="alert__content">
-        <div class="alert__message">${message}</div>
+        <div class="alert__message">${escapeHtml(message)}</div>
       </div>
     `;
-    document.querySelector(".app-main__inner").insertBefore(alert, document.querySelector(".page-header").nextSibling);
-    setTimeout(() => alert.remove(), 5000);
+    const target = document.querySelector(".page-header");
+    if (target && target.parentNode) {
+      target.parentNode.insertBefore(alert, target.nextSibling);
+      setTimeout(() => alert.remove(), 5000);
+    }
   };
 
   /**
    * Utility: Escape HTML to prevent XSS
    */
   const escapeHtml = (text) => {
+    if (!text) return "";
     const div = document.createElement("div");
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
   };
 
