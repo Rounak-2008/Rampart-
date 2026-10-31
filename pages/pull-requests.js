@@ -302,8 +302,8 @@ const PULL_REQUESTS = (() => {
     // Fetch full PR details from backend to ensure active alerts and full analysis data are present
     try {
       const resp = await APP.api.get(`/pull-requests/${prId}`);
-      if (resp && resp.data) {
-        pr = resp.data;
+      if (resp) {
+        pr = resp.data || resp;
       }
     } catch (e) {
       console.warn("Could not fetch PR detail, using cached:", e);
@@ -366,8 +366,13 @@ const PULL_REQUESTS = (() => {
     }
 
     // Render existing structured analysis if available
-    const analysisData = pr.analysis_data;
-    if (analysisData) {
+    let analysisData = pr.analysis_data;
+    if (typeof analysisData === "string") {
+      try {
+        analysisData = JSON.parse(analysisData);
+      } catch (_) {}
+    }
+    if (analysisData && typeof analysisData === "object") {
       detailsHTML += renderStructuredReportHTML(analysisData);
     } else {
       detailsHTML += `
@@ -396,13 +401,22 @@ const PULL_REQUESTS = (() => {
     const findings = analysis.findings || [];
 
     const isTestPass = evidence.has_test_evidence;
+    const testExecutionStatus = evidence.test_execution_status || "NOT_EXECUTED";
     const testBadge = isTestPass
-      ? '<span class="status-badge merged" style="font-size: 11px;">✓ Automated Tests Included</span>'
-      : '<span class="status-badge closed" style="font-size: 11px;">⚠️ Missing Test Evidence</span>';
+      ? `<span class="status-badge merged" style="font-size: 11px;">✓ Test Files Present</span><span style="font-size: 10px; color: var(--color-text-secondary); margin-left: 4px;">(${testExecutionStatus})</span>`
+      : `<span class="status-badge closed" style="font-size: 11px;">⚠️ Missing Test Files</span><span style="font-size: 10px; color: var(--color-text-secondary); margin-left: 4px;">(${testExecutionStatus})</span>`;
 
     const testFiles = evidence.test_files || [];
     const filesList = evidence.files_list || [];
     const sensitiveFiles = evidence.sensitive_files || [];
+    const recommendations = ai.recommendations || [];
+    const concerns = ai.architectural_concerns || [];
+    const references = ai.evidence_references || [];
+
+    const isAiOnline = modelRuntime.status === "online" && ai.is_ai_generated;
+    const runtimeBadgeText = isAiOnline
+      ? "🤖 Gemma 4 E4B — Local Ollama"
+      : "⚠️ Rule-Based Fallback (Ollama Offline)";
 
     let html = `
       <!-- 1. OBSERVED TECHNICAL EVIDENCE (FACTS & METRICS) -->
@@ -412,7 +426,7 @@ const PULL_REQUESTS = (() => {
             <span>🔍 1. Observed Technical Evidence</span>
           </span>
           <span style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;">
-            Deterministic Facts
+            Deterministic Ground Truth
           </span>
         </div>
 
@@ -429,7 +443,7 @@ const PULL_REQUESTS = (() => {
             </div>
           </div>
           <div class="pr-evidence-item">
-            <div class="pr-evidence-item__label">Test Evidence</div>
+            <div class="pr-evidence-item__label">Test Evidence Status</div>
             <div style="margin-top: 4px;">${testBadge}</div>
           </div>
           <div class="pr-evidence-item">
@@ -445,9 +459,10 @@ const PULL_REQUESTS = (() => {
             ? `<div style="margin-top: var(--space-2); font-size: 12px;">
                 <strong>Identified Test Suites:</strong> 
                 ${testFiles.map((f) => `<span class="pr-file-tag" style="background: rgba(34,197,94,0.1); border-color: #86efac; color: #166534;">${escapeHtml(f)}</span>`).join("")}
+                <span style="font-size: 11px; color: var(--color-text-muted); margin-left: 6px;">[Execution: ${testExecutionStatus}]</span>
               </div>`
             : `<div style="margin-top: var(--space-2); font-size: 12px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 4px; border: 1px solid #fef3c7;">
-                <strong>Note:</strong> Pull request modifies application logic without adding or modifying test files in tests/ or test_*.py.
+                <strong>Note:</strong> Pull request modifies application logic without adding or modifying test files in tests/ or test_*.py. Tests were ${testExecutionStatus}.
               </div>`
         }
 
@@ -463,37 +478,67 @@ const PULL_REQUESTS = (() => {
         }
       </div>
 
-      <!-- 2. AI RISK & TECHNICAL ANALYSIS -->
+      <!-- 2. ACTUAL GEMMA AI ANALYSIS -->
       <div class="pr-section-card" style="border-left: 4px solid ${analysis.risk_level === 'HIGH' ? '#dc2626' : (analysis.risk_level === 'MEDIUM' ? '#f59e0b' : '#16a34a')};">
         <div class="pr-section-card__header">
           <span class="pr-section-card__title">
-            <span>✨ 2. AI Risk & Technical Analysis</span>
+            <span>✨ 2. Actual Gemma AI Analysis</span>
           </span>
-          <span class="model-runtime-badge ${modelRuntime.status === 'online' ? '' : 'offline'}">
-            🤖 ${escapeHtml(modelRuntime.model || "gemma4:26b-mlx")} 
-            (${modelRuntime.status === 'online' ? 'Local MLX Online' : 'Offline Fallback / RAMPART Agent'})
+          <span class="model-runtime-badge ${isAiOnline ? '' : 'offline'}">
+            ${escapeHtml(runtimeBadgeText)}
           </span>
         </div>
 
         ${
           modelRuntime.blocker
             ? `<div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 4px; padding: 8px 12px; font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
-                <strong>Model Runtime Note:</strong> ${escapeHtml(modelRuntime.blocker)}
+                <strong>Runtime Note:</strong> ${escapeHtml(modelRuntime.blocker)}
               </div>`
             : ""
         }
 
         <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);">
-          <strong>Technical Summary:</strong> ${escapeHtml(ai.technical_changes_summary || analysis.analysis_summary || "Standard PR change.")}
+          <strong>Technical Summary:</strong> ${escapeHtml(ai.technical_summary || analysis.analysis_summary || "Standard PR change.")}
         </div>
 
         <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-3);">
-          <strong>Test Coverage Assessment:</strong> ${escapeHtml(ai.test_evidence_assessment || "Evaluated by RAMPART pattern engine.")}
+          <strong>Test Assessment:</strong> ${escapeHtml(ai.test_assessment || "Static inspection. Tests have not been executed.")}
         </div>
+
+        ${
+          concerns.length > 0
+            ? `<div style="font-size: 12px; margin-bottom: var(--space-2);">
+                <strong>Architectural Concerns:</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                  ${concerns.map(c => `<li>${escapeHtml(typeof c === "string" ? c : JSON.stringify(c))}</li>`).join("")}
+                </ul>
+              </div>`
+            : ""
+        }
+
+        ${
+          recommendations.length > 0
+            ? `<div style="font-size: 12px; margin-bottom: var(--space-3); background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 8px 12px;">
+                <strong style="color: #166534;">Recommendations:</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0; color: #166534;">
+                  ${recommendations.map(r => `<li>${escapeHtml(typeof r === "string" ? r : JSON.stringify(r))}</li>`).join("")}
+                </ul>
+              </div>`
+            : ""
+        }
+
+        ${
+          references.length > 0
+            ? `<div style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
+                <strong>Evidence References:</strong>
+                ${references.map(ref => `<code style="background: var(--color-bg); padding: 2px 6px; border-radius: 3px; margin-right: 4px;">${escapeHtml(typeof ref === "string" ? ref : JSON.stringify(ref))}</code>`).join("")}
+              </div>`
+            : ""
+        }
 
         <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-bg); padding: 8px 12px; border-radius: 4px;">
           <span style="font-size: 12px; font-weight: var(--font-weight-semibold); text-transform: uppercase;">
-            Calculated Risk Assessment
+            Risk Assessment
           </span>
           <span class="review-badge ${analysis.risk_level === 'HIGH' ? 'changes_requested' : (analysis.risk_level === 'MEDIUM' ? 'pending' : 'approved')}">
             ${analysis.risk_level} (Score: ${analysis.risk_score ?? 10}/100)
@@ -501,7 +546,7 @@ const PULL_REQUESTS = (() => {
         </div>
       </div>
 
-      <!-- 3. DETAILED FINDINGS & NETWORK EVIDENCE -->
+      <!-- 3. EVALUATED SIGNALS & FINDINGS -->
       <div class="pr-section-card">
         <div class="pr-section-card__header">
           <span class="pr-section-card__title">
