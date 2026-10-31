@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contributors & Trust — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <!-- Page-specific styles -->
+    <style>
+      /* Contributors Page */
+      .contrib-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+      }
+
+      .contrib-stat-card {
+        background: linear-gradient(135deg, var(--color-surface) 0%, #fafbfd 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+      }
+
+      .contrib-stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .contrib-stat-card__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        margin-bottom: var(--space-2);
+      }
+
+      .contrib-stat-card__value {
+        font-size: 2rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+
+      /* Controls */
+      .contrib-controls {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .contrib-search {
+        flex: 1;
+        min-width: 220px;
+      }
+
+      .contrib-filters {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+
+      .filter-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        background-color: var(--color-primary-light);
+      }
+
+      .filter-btn.active {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+      }
+
+      /* Table Container */
+      .contrib-table-container {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .contrib-cell {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .contrib-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--color-border);
+        object-fit: cover;
+      }
+
+      .contrib-info {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .contrib-name {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+      }
+
+      .contrib-meta {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+      }
+
+      /* Trust score badge */
+      .trust-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+      }
+
+      .trust-pill.high {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+
+      .trust-pill.neutral {
+        background: #f0fdf4;
+        color: #1e3a8a;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+      }
+
+      .trust-pill.low {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
+
+      /* Status Badges */
+      .badge-trusted {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .badge-new {
+        background: #e0f2fe;
+        color: #0369a1;
+      }
+
+      .badge-flagged {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      .badge-neutral {
+        background: #f3f4f6;
+        color: #4b5563;
+      }
+
+      .action-btn-group {
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
+      }
+
+      .btn-vouch-action {
+        color: var(--color-success);
+        border-color: rgba(22, 163, 74, 0.3);
+      }
+      .btn-vouch-action:hover {
+        background: #ecfdf5;
+        border-color: var(--color-success);
+      }
+
+      .btn-denounce-action {
+        color: var(--color-danger);
+        border-color: rgba(220, 38, 38, 0.3);
+      }
+      .btn-denounce-action:hover {
+        background: #fef2f2;
+        border-color: var(--color-danger);
+      }
+
+      /* Profile Modal */
+      .profile-header-banner {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding-bottom: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: var(--space-4);
+      }
+
+      .profile-avatar-lg {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--color-primary);
+      }
+
+      .profile-stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
+      }
+
+      .profile-stat-box {
+        background: var(--color-background);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        text-align: center;
+      }
+
+      .profile-stat-box__val {
+        font-size: 1.25rem;
+        font-weight: var(--font-weight-bold);
+      }
+
+      .profile-stat-box__lbl {
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        margin-top: 2px;
+      }
+
+      .records-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: var(--space-2);
+      }
+
+      .record-card {
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+      }
+
+      .record-card.vouch {
+        border-left: 4px solid var(--color-success);
+      }
+
+      .record-card.denounce {
+        border-left: 4px solid var(--color-danger);
+      }
+
+      .record-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-2);
+      }
+
+      .record-reason {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-primary);
+        line-height: 1.4;
+      }
+
+      .record-evidence {
+        font-size: 11px;
+        margin-top: var(--space-2);
+        padding: 4px 8px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 4px;
+        word-break: break-all;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.55);
+        z-index: var(--z-overlay);
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-4);
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal__content {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        max-width: 620px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.2s ease;
+      }
+
+      @keyframes slideUp {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .ethical-banner {
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        line-height: 1.4;
+        margin-bottom: var(--space-4);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app-shell" data-page="contributors">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="repositories.html" class="nav-link" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="contributors.html" class="nav-link is-active" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="#alerts" class="nav-link" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="#trust-network" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="#notifications" class="nav-link" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div class="user-profile">
+            <div class="user-profile__avatar">R</div>
+            <div class="user-profile__info">
+              <div class="user-profile__name">Rounak-2008</div>
+              <div class="user-profile__role">Backend Dev (Owner)</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <button class="app-header__menu-toggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="app-header__search">
+          <span style="color: var(--color-text-secondary); font-size: 13px;">🛡️ RAMPART Trust Network Active</span>
+        </div>
+
+        <div class="app-header__actions">
+          <button class="btn btn-secondary btn-sm" id="btn-quick-vouch">
+            ✓ New Vouch
+          </button>
+          <button class="btn btn-secondary btn-sm" id="btn-quick-denounce" style="color: var(--color-danger);">
+            ⚠️ Report Abuse
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <!-- Page Header -->
+          <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4);">
+            <div>
+              <h1 class="page-header__title">Contributors & Trust Management</h1>
+              <p class="text-secondary">
+                Transparent, evidence-backed contributor reputations across all connected open-source repositories.
+              </p>
+            </div>
+            <div style="font-size: var(--font-size-xs); background: var(--color-surface); border: 1px solid var(--color-border); padding: 8px 12px; border-radius: var(--radius-md);">
+              <span style="color: var(--color-success); font-weight: bold;">✓ Human Maintainers Sovereignty</span>
+              <span style="display: block; color: var(--color-text-secondary); margin-top: 2px;">AI scores are advisory. Zero automated punitive bans.</span>
+            </div>
+          </div>
+
+          <!-- Overview Cards Grid -->
+          <div class="contrib-overview-grid" id="overview-container">
+            <div class="contrib-stat-card">
+              <div class="contrib-stat-card__label">Tracked Contributors</div>
+              <div class="contrib-stat-card__value">—</div>
+            </div>
+            <div class="contrib-stat-card">
+              <div class="contrib-stat-card__label">Verified Trusted</div>
+              <div class="contrib-stat-card__value" style="color: var(--color-success);">—</div>
+            </div>
+            <div class="contrib-stat-card">
+              <div class="contrib-stat-card__label">New / Good-Faith Baseline</div>
+              <div class="contrib-stat-card__value" style="color: var(--color-info);">—</div>
+            </div>
+            <div class="contrib-stat-card">
+              <div class="contrib-stat-card__label">Flagged With Evidence</div>
+              <div class="contrib-stat-card__value" style="color: var(--color-danger);">—</div>
+            </div>
+          </div>
+
+          <!-- Controls: Search & Filters -->
+          <div class="contrib-controls">
+            <div class="contrib-search">
+              <input
+                type="text"
+                id="search-contributors"
+                class="form-input"
+                placeholder="Search contributor by username..."
+              />
+            </div>
+
+            <div class="contrib-filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="TRUSTED">Trusted</button>
+              <button class="filter-btn" data-filter="NEW">New / Unknown</button>
+              <button class="filter-btn" data-filter="FLAGGED">Flagged</button>
+            </div>
+          </div>
+
+          <!-- Contributors Table -->
+          <div class="contrib-table-container">
+            <table class="table" id="contrib-table">
+              <thead>
+                <tr>
+                  <th>Contributor</th>
+                  <th>Trust Score</th>
+                  <th>Network Status</th>
+                  <th>Total PRs</th>
+                  <th>Vouches</th>
+                  <th>Denouncements</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="contrib-tbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">
+                    <div class="loading-spinner" style="display: inline-block;"></div> Loading contributor network data...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none; padding: var(--space-7); text-align: center;">
+              <div style="font-size: 2.5rem; margin-bottom: var(--space-3);">👥</div>
+              <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-1);">No contributors found</div>
+              <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                Try adjusting your search query or status filter.
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay -->
+    <div class="app-overlay"></div>
+
+    <!-- 1. Profile Modal -->
+    <div class="modal" id="profile-modal">
+      <div class="modal__content">
+        <div class="profile-header-banner">
+          <img src="" alt="" id="prof-avatar" class="profile-avatar-lg" />
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 id="prof-username" style="margin: 0; font-size: 1.25rem;">—</h2>
+              <span id="prof-status-badge" class="badge">—</span>
+            </div>
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 4px;">
+              Trust Score: <strong id="prof-score" style="color: var(--color-primary);">50</strong>/100
+              • First seen: <span id="prof-first-seen">—</span>
+            </div>
+          </div>
+          <button class="action-btn" id="prof-close-x" style="font-size: 1.2rem;">✕</button>
+        </div>
+
+        <div class="ethical-banner">
+          <strong>⚖️ Fairness Policy:</strong> Contributors without historical records are classified as <strong>New / Unknown</strong> and treated in good faith. High activity or similar titles alone do not constitute evidence of spam.
+        </div>
+
+        <div class="profile-stats-row">
+          <div class="profile-stat-box">
+            <div class="profile-stat-box__val" id="prof-total-prs">0</div>
+            <div class="profile-stat-box__lbl">Pull Requests</div>
+          </div>
+          <div class="profile-stat-box">
+            <div class="profile-stat-box__val" id="prof-vouches" style="color: var(--color-success);">0</div>
+            <div class="profile-stat-box__lbl">Vouches</div>
+          </div>
+          <div class="profile-stat-box">
+            <div class="profile-stat-box__val" id="prof-denounces" style="color: var(--color-danger);">0</div>
+            <div class="profile-stat-box__lbl">Denounces</div>
+          </div>
+          <div class="profile-stat-box">
+            <div class="profile-stat-box__val" id="prof-trust-index">50%</div>
+            <div class="profile-stat-box__lbl">Trust Index</div>
+          </div>
+        </div>
+
+        <h3 style="font-size: var(--font-size-sm); margin: var(--space-4) 0 var(--space-2); text-transform: uppercase; color: var(--color-text-secondary);">
+          Evidence-Backed Trust Records
+        </h3>
+        <div class="records-timeline" id="prof-records-container">
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); padding: var(--space-3); text-align: center;">
+            No trust records yet.
+          </div>
+        </div>
+
+        <h3 style="font-size: var(--font-size-sm); margin: var(--space-4) 0 var(--space-2); text-transform: uppercase; color: var(--color-text-secondary);">
+          Recent Cross-Repository Pull Requests
+        </h3>
+        <div class="records-timeline" id="prof-prs-container" style="max-height: 180px;">
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); padding: var(--space-3); text-align: center;">
+            No PRs recorded in connected repositories.
+          </div>
+        </div>
+
+        <div style="display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: var(--space-5); border-top: 1px solid var(--color-border); padding-top: var(--space-4);">
+          <button class="btn btn-secondary btn-sm" id="prof-action-vouch" style="color: var(--color-success);">
+            ✓ Vouch for Contributor
+          </button>
+          <button class="btn btn-secondary btn-sm" id="prof-action-denounce" style="color: var(--color-danger);">
+            ⚠️ Report (Denounce)
+          </button>
+          <button class="btn btn-primary btn-sm" id="prof-close-btn">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Vouch Modal -->
+    <div class="modal" id="vouch-modal">
+      <div class="modal__content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 style="margin: 0; font-size: 1.25rem; color: var(--color-success);">
+            ✓ Vouch for Contributor
+          </h2>
+          <button class="action-btn" id="vouch-close-x">✕</button>
+        </div>
+
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-4);">
+          Provide an evidence-backed endorsement based on real code quality, security research, or architectural contributions.
+        </p>
+
+        <form id="vouch-form">
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Contributor GitHub Username</label>
+            <input type="text" id="vouch-username" class="form-input" required placeholder="e.g. alex-dev" />
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Associated Repository</label>
+            <select id="vouch-repo-select" class="form-select">
+              <option value="">(Select connected repository)</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Contribution Category</label>
+            <select id="vouch-category" class="form-select" required>
+              <option value="QUALITY_CONTRIBUTION">Quality Code & Architecture</option>
+              <option value="SECURITY_RESEARCH">Responsible Security Patch / Disclosure</option>
+              <option value="RELIABILITY">Reliable Testing & Regressions Prevention</option>
+              <option value="DOCUMENTATION">Clear Documentation & Guides</option>
+              <option value="RESPONSIVE_COLLABORATOR">Fast & Constructive Code Review</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Detailed Reason (min 10 characters)</label>
+            <textarea id="vouch-reason" class="form-textarea" rows="3" required placeholder="Explain how this contributor demonstrated high standards..."></textarea>
+          </div>
+
+          <div style="margin-bottom: var(--space-4);">
+            <label class="form-label">Verifiable Evidence URL</label>
+            <input type="url" id="vouch-evidence" class="form-input" required placeholder="https://github.com/owner/repo/pull/123" />
+            <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">
+              Link to merged pull request, commit hash, or public issue discussion.
+            </div>
+          </div>
+
+          <div id="vouch-error" class="alert alert-danger" style="display: none; margin-bottom: var(--space-3);"></div>
+
+          <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary btn-sm" id="vouch-cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-success btn-sm" id="vouch-submit-btn">Record Vouch (+18 Score)</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 3. Denounce Modal -->
+    <div class="modal" id="denounce-modal">
+      <div class="modal__content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 style="margin: 0; font-size: 1.25rem; color: var(--color-danger);">
+            ⚠️ Report Abusive / Spam Contributor
+          </h2>
+          <button class="action-btn" id="denounce-close-x">✕</button>
+        </div>
+
+        <div class="alert alert-danger" style="font-size: var(--font-size-xs); margin-bottom: var(--space-4); padding: var(--space-3);">
+          <strong>Evidence Mandate:</strong> Do not denounce for innocent typos or minor mistakes. Denouncements require verifiable proof of spam automation, cross-repo duplicate farming, or malicious diffs.
+        </div>
+
+        <form id="denounce-form">
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Contributor GitHub Username</label>
+            <input type="text" id="denounce-username" class="form-input" required placeholder="e.g. spam-bot" />
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Associated Repository</label>
+            <select id="denounce-repo-select" class="form-select">
+              <option value="">(Select connected repository)</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Violation Category</label>
+            <select id="denounce-category" class="form-select" required>
+              <option value="CROSS_REPO_SPAM">Cross-Repository Automated PR Spam</option>
+              <option value="FARMING_PRS">Trivial PR Farming (Whitespace/Typo Scripts)</option>
+              <option value="MALICIOUS_DIFF">Malicious Code / Hidden Vulnerability</option>
+              <option value="PLAGIARISM">Plagiarism / Unattributed Code Stealing</option>
+              <option value="ABUSIVE_AUTOMATION">Unmonitored AI Spam / Bot Churn</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <label class="form-label">Specific Reason & Context (min 10 characters)</label>
+            <textarea id="denounce-reason" class="form-textarea" rows="3" required placeholder="Describe the pattern and why this activity disrupts open source maintainers..."></textarea>
+          </div>
+
+          <div style="margin-bottom: var(--space-4);">
+            <label class="form-label">Verifiable Evidence URL</label>
+            <input type="url" id="denounce-evidence" class="form-input" required placeholder="https://github.com/owner/repo/pull/456" />
+            <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">
+              Link to spam PR, closed issue with maintainer notes, or multi-repo diff.
+            </div>
+          </div>
+
+          <div id="denounce-error" class="alert alert-danger" style="display: none; margin-bottom: var(--space-3);"></div>
+
+          <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary btn-sm" id="denounce-cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-danger btn-sm" id="denounce-submit-btn">Submit Denouncement (-32 Score)</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="contributors.js"></script>
+  </body>
+</html>
