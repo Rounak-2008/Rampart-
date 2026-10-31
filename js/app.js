@@ -106,7 +106,7 @@ const APP = (() => {
    * Provides a consistent way to call backend endpoints.
    */
   const api = {
-    baseUrl: process.env.API_BASE_URL || "http://localhost:8000/api",
+    baseUrl: (typeof window !== "undefined" && window.API_BASE_URL) || "http://localhost:8000/api",
 
     async get(endpoint) {
       try {
