@@ -88,11 +88,18 @@ def init_db() -> None:
                 updated_at TEXT,
                 merged_at TEXT,
                 closed_at TEXT,
+                analysis_data TEXT,
                 FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
                 FOREIGN KEY (contributor_id) REFERENCES contributors(id) ON DELETE CASCADE,
                 UNIQUE(repo_id, pr_number)
             )
         """)
+
+        # Migration helper: ensure analysis_data exists on existing databases
+        cursor.execute("PRAGMA table_info(pull_requests)")
+        pr_cols = [c["name"] for c in cursor.fetchall()]
+        if "analysis_data" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN analysis_data TEXT")
 
         # Trust Records (Vouch / Denounce)
         cursor.execute("""

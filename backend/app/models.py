@@ -102,6 +102,7 @@ class PullRequestDetailResponse(PullRequestResponse):
     contributor_denounces: int = 0
     active_alerts: List[Dict[str, Any]] = []
     reviews: List[Dict[str, Any]] = []
+    analysis_data: Optional[Dict[str, Any]] = None
 
 # PR Analysis findings
 class AnalysisFinding(BaseModel):
@@ -109,6 +110,7 @@ class AnalysisFinding(BaseModel):
     description: str
     evidence: Optional[str] = None
     severity: str # "warning", "caution", "info"
+    category: Optional[str] = None # "Observed Evidence", "AI Risk Analysis", "Trust Network"
 
 class PullRequestAnalysisResult(BaseModel):
     pr_id: int
@@ -118,6 +120,9 @@ class PullRequestAnalysisResult(BaseModel):
     denounces_count: int = 0
     generated_alerts: List[str] = []
     findings: List[AnalysisFinding] = []
+    observed_evidence: Optional[Dict[str, Any]] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
+    model_runtime: Optional[Dict[str, Any]] = None
 
 # Trust Records (Vouch / Denounce)
 class VouchCreate(BaseModel):

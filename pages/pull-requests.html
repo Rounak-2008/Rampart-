@@ -455,6 +455,93 @@
         margin-top: var(--space-3);
       }
 
+      /* Distinct Observed Evidence vs AI Analysis Cards */
+      .pr-section-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+      }
+
+      .pr-section-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-3);
+        padding-bottom: var(--space-2);
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .pr-section-card__title {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .pr-evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+
+      .pr-evidence-item {
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: var(--space-2) var(--space-3);
+      }
+
+      .pr-evidence-item__label {
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        text-transform: uppercase;
+      }
+
+      .pr-evidence-item__value {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-top: 2px;
+      }
+
+      .pr-file-tag {
+        display: inline-block;
+        padding: 2px 6px;
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        font-family: monospace;
+        font-size: 11px;
+        margin-right: 4px;
+        margin-bottom: 4px;
+      }
+
+      .model-runtime-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        font-size: 11px;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.08);
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        font-weight: var(--font-weight-medium);
+      }
+
+      .model-runtime-badge.offline {
+        background: rgba(100, 116, 139, 0.1);
+        color: #475569;
+        border-color: rgba(100, 116, 139, 0.2);
+      }
+
       .modal__footer {
         display: flex;
         gap: var(--space-3);
@@ -659,6 +746,14 @@
 
           <!-- Search and Filters -->
           <div class="pr-controls">
+            <select
+              class="form-select pr-repo-select"
+              id="repo-filter"
+              style="width: auto; min-width: 220px;"
+              aria-label="Filter by repository"
+            >
+              <option value="">All Repositories</option>
+            </select>
             <input
               type="text"
               class="form-input pr-search"
@@ -727,6 +822,7 @@
         </div>
 
         <div class="modal__footer">
+          <button class="btn btn-primary" id="modal-analyze-btn">✨ Analyze PR</button>
           <button class="btn btn-secondary" id="modal-close-btn">Close</button>
         </div>
       </div>

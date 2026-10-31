@@ -112,6 +112,15 @@ def get_pull_request(pr_id: int):
         """, (pr_id,))
         alerts = [dict(a) for a in cursor.fetchall()]
 
+        # Parse stored structured analysis data if available
+        import json
+        analysis_data = None
+        if "analysis_data" in row.keys() and row["analysis_data"]:
+            try:
+                analysis_data = json.loads(row["analysis_data"])
+            except Exception:
+                analysis_data = None
+
         data = PullRequestDetailResponse(
             id=row["id"],
             github_pr_id=row["github_pr_id"],
@@ -144,7 +153,8 @@ def get_pull_request(pr_id: int):
             updated_at=row["updated_at"],
             contributor_vouches=row["contributor_vouches"],
             contributor_denounces=row["contributor_denounces"],
-            active_alerts=alerts
+            active_alerts=alerts,
+            analysis_data=analysis_data
         )
         return APIResponse(success=True, data=data.model_dump())
 

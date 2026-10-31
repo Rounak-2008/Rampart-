@@ -1,19 +1,22 @@
 /**
  * RAMPART — Pull Requests Management Page
- * Load, filter, search, and analyze GitHub pull requests
- * Real backend integration with analysis capabilities
+ * Real backend integration, repository filtering, live diff fetching,
+ * and local PR analysis agent separating Observed Evidence from AI Conclusions.
  */
 
 const PULL_REQUESTS = (() => {
   // State
   let allPullRequests = [];
+  let allRepositories = [];
   let filteredPullRequests = [];
   let currentFilter = "all";
+  let currentRepoId = "";
   let currentSearch = "";
   let selectedPRId = null;
 
   // DOM Elements
   const overviewContainer = document.getElementById("overview-container");
+  const repoSelect = document.getElementById("repo-filter");
   const searchInput = document.getElementById("search-prs");
   const filterBtns = document.querySelectorAll(".filter-btn");
   const prTable = document.getElementById("pr-table");
@@ -23,17 +26,33 @@ const PULL_REQUESTS = (() => {
   const modalBody = document.getElementById("modal-body");
   const closeModalBtn = document.getElementById("close-modal-btn");
   const modalCloseBtn = document.getElementById("modal-close-btn");
+  const modalAnalyzeBtn = document.getElementById("modal-analyze-btn");
   const appOverlay = document.querySelector(".app-overlay");
 
   const init = async () => {
     attachEventListeners();
-    await loadPullRequests();
+    await Promise.all([loadRepositories(), loadPullRequests()]);
   };
 
   const attachEventListeners = () => {
-    closeModalBtn.addEventListener("click", closeDetailsModal);
-    modalCloseBtn.addEventListener("click", closeDetailsModal);
-    appOverlay.addEventListener("click", closeDetailsModal);
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeDetailsModal);
+    if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeDetailsModal);
+    if (appOverlay) appOverlay.addEventListener("click", closeDetailsModal);
+
+    if (modalAnalyzeBtn) {
+      modalAnalyzeBtn.addEventListener("click", () => {
+        if (selectedPRId) {
+          handleAnalyze(selectedPRId);
+        }
+      });
+    }
+
+    if (repoSelect) {
+      repoSelect.addEventListener("change", (e) => {
+        currentRepoId = e.target.value;
+        applyFiltersAndSearch();
+      });
+    }
 
     filterBtns.forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -44,10 +63,32 @@ const PULL_REQUESTS = (() => {
       });
     });
 
-    searchInput.addEventListener("input", (e) => {
-      currentSearch = e.target.value.toLowerCase();
-      applyFiltersAndSearch();
-    });
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        currentSearch = e.target.value.toLowerCase();
+        applyFiltersAndSearch();
+      });
+    }
+  };
+
+  /**
+   * Load repositories from API for selector dropdown
+   */
+  const loadRepositories = async () => {
+    if (!repoSelect) return;
+    try {
+      const response = await APP.api.get("/repositories");
+      allRepositories = Array.isArray(response) ? response : (response.data || []);
+      
+      let optionsHTML = '<option value="">All Repositories</option>';
+      allRepositories.forEach((repo) => {
+        const repoName = repo.full_name || `${repo.owner}/${repo.name}`;
+        optionsHTML += `<option value="${repo.id}">${escapeHtml(repoName)}</option>`;
+      });
+      repoSelect.innerHTML = optionsHTML;
+    } catch (error) {
+      console.warn("Failed to load repositories for selector:", error);
+    }
   };
 
   /**
@@ -55,8 +96,10 @@ const PULL_REQUESTS = (() => {
    */
   const loadPullRequests = async () => {
     try {
-      overviewContainer.innerHTML =
-        '<div style="grid-column: 1/-1; text-align: center; padding: var(--space-5);"><div class="loading-spinner" style="display: inline-block;"></div> Loading pull requests...</div>';
+      if (overviewContainer) {
+        overviewContainer.innerHTML =
+          '<div style="grid-column: 1/-1; text-align: center; padding: var(--space-5);"><div class="loading-spinner" style="display: inline-block;"></div> Loading pull requests from RAMPART backend...</div>';
+      }
 
       const response = await APP.api.get("/pull-requests");
       allPullRequests = Array.isArray(response) ? response : (response.data || response.pull_requests || []);
@@ -66,18 +109,25 @@ const PULL_REQUESTS = (() => {
       renderTable();
     } catch (error) {
       console.error("Failed to load pull requests:", error);
-      showError("Failed to load pull requests from backend. Please check if http://127.0.0.1:8000 is running.");
-      overviewContainer.innerHTML = "";
-      prTbody.innerHTML =
-        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">Unable to connect to backend. Please check if http://127.0.0.1:8000 is running.</td></tr>';
+      showError("Failed to load pull requests from backend. Please verify http://127.0.0.1:8000 is running.");
+      if (overviewContainer) overviewContainer.innerHTML = "";
+      if (prTbody) {
+        prTbody.innerHTML =
+          '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">Unable to connect to backend. Please verify http://127.0.0.1:8000 is running.</td></tr>';
+      }
     }
   };
 
   /**
-   * Apply filter and search
+   * Apply repository filter, status filter, and text search
    */
   const applyFiltersAndSearch = () => {
     let filtered = allPullRequests;
+
+    // Apply repository filter
+    if (currentRepoId) {
+      filtered = filtered.filter((pr) => String(pr.repo_id) === String(currentRepoId));
+    }
 
     // Apply status filter
     if (currentFilter !== "all") {
@@ -87,7 +137,7 @@ const PULL_REQUESTS = (() => {
       });
     }
 
-    // Apply search
+    // Apply text search
     if (currentSearch) {
       filtered = filtered.filter((pr) => {
         const combined = `${pr.title} ${pr.author || pr.contributor_username || ""} ${pr.repository || pr.repo_full_name || ""}`.toLowerCase();
@@ -100,21 +150,22 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Render overview cards
+   * Render overview summary cards
    */
   const renderOverview = () => {
+    if (!overviewContainer) return;
     const total = allPullRequests.length;
     const open = allPullRequests.filter((pr) => (pr.status || pr.state) === "open").length;
     const merged = allPullRequests.filter((pr) => (pr.status || pr.state) === "merged").length;
-    const needsReview = allPullRequests.filter(
-      (pr) => (pr.review_status === "pending" || pr.risk_level === "HIGH") && (pr.status || pr.state) === "open"
+    const flagged = allPullRequests.filter(
+      (pr) => pr.risk_level === "HIGH" || pr.risk_level === "MEDIUM"
     ).length;
 
     const stats = [
       { label: "Total Pull Requests", value: total },
       { label: "Open", value: open },
       { label: "Merged", value: merged },
-      { label: "Pending Review / Flagged", value: needsReview },
+      { label: "Flagged / Elevated Risk", value: flagged },
     ];
 
     overviewContainer.innerHTML = stats
@@ -133,6 +184,8 @@ const PULL_REQUESTS = (() => {
    * Render pull requests table
    */
   const renderTable = () => {
+    if (!prTable || !prTbody || !emptyState) return;
+
     if (filteredPullRequests.length === 0 && allPullRequests.length === 0) {
       prTable.style.display = "none";
       emptyState.style.display = "block";
@@ -144,7 +197,7 @@ const PULL_REQUESTS = (() => {
 
     if (filteredPullRequests.length === 0) {
       prTbody.innerHTML =
-        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">No pull requests match your search.</td></tr>';
+        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">No pull requests match the selected filters.</td></tr>';
       return;
     }
 
@@ -152,7 +205,7 @@ const PULL_REQUESTS = (() => {
       .map((pr) => renderPRRow(pr))
       .join("");
 
-    // Attach action event listeners
+    // Attach event listeners for row actions
     document.querySelectorAll(".btn-view-pr").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -169,19 +222,26 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Render single PR row
+   * Render a single PR table row
    */
   const renderPRRow = (pr) => {
     const createdDate = pr.created_at
       ? new Date(pr.created_at).toLocaleDateString()
       : "Unknown";
     const statusVal = (pr.status || pr.state || "open").toLowerCase();
-    const statusClass = statusVal;
     const reviewStatus = pr.review_status || (pr.risk_level === "HIGH" ? "changes_requested" : (statusVal === "merged" ? "approved" : "pending"));
-    const reviewClass = reviewStatus.toLowerCase();
     const prNumber = pr.number ?? pr.pr_number ?? "?";
     const authorName = pr.author || pr.contributor_username || "—";
     const repoName = pr.repository || pr.repo_full_name || "—";
+
+    let riskBadge = "";
+    if (pr.risk_level === "HIGH") {
+      riskBadge = '<span class="status-badge closed" style="margin-left: 6px; font-size: 10px;">HIGH RISK</span>';
+    } else if (pr.risk_level === "MEDIUM") {
+      riskBadge = '<span class="status-badge open" style="margin-left: 6px; font-size: 10px; background: #fef3c7; color: #b45309; border-color: #fde68a;">MEDIUM RISK</span>';
+    } else if (pr.risk_level === "LOW") {
+      riskBadge = '<span class="status-badge merged" style="margin-left: 6px; font-size: 10px;">LOW RISK</span>';
+    }
 
     return `
       <tr>
@@ -190,7 +250,7 @@ const PULL_REQUESTS = (() => {
             <span class="pr-icon">🔀</span>
             <div class="pr-info">
               <div class="pr-title" data-pr-id="${pr.id}">${escapeHtml(pr.title)}</div>
-              <div class="pr-number">#${prNumber}</div>
+              <div class="pr-number">#${prNumber} ${riskBadge}</div>
             </div>
           </div>
         </td>
@@ -199,29 +259,29 @@ const PULL_REQUESTS = (() => {
         </td>
         <td>
           <span style="font-weight: var(--font-weight-medium);">${escapeHtml(authorName)}</span>
-          ${pr.contributor_trust_score ? `<span style="font-size: 11px; color: var(--color-text-secondary); margin-left: 4px;">(${pr.contributor_trust_score})</span>` : ""}
+          ${pr.contributor_trust_score ? `<span style="font-size: 11px; color: var(--color-text-secondary); margin-left: 4px;">(${pr.contributor_trust_score}/100)</span>` : ""}
         </td>
         <td>
-          <span class="status-badge ${statusClass}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
+          <span class="status-badge ${statusVal}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
         </td>
         <td>
-          <span class="review-badge ${reviewClass}">${
-      reviewStatus === "approved"
-        ? "Approved"
-        : reviewStatus === "changes_requested"
-          ? "Changes Requested"
-          : "Pending"
-    }</span>
+          <span class="review-badge ${reviewStatus}">${
+            reviewStatus === "approved"
+              ? "Approved"
+              : reviewStatus === "changes_requested"
+              ? "Changes Requested"
+              : "Pending"
+          }</span>
         </td>
         <td>
           <span class="pr-date">${createdDate}</span>
         </td>
         <td>
           <div class="pr-actions">
-            <button class="action-btn btn-view-pr" data-pr-id="${pr.id}" title="View details">
+            <button class="action-btn btn-view-pr" data-pr-id="${pr.id}" title="View details and evidence">
               👁️ View
             </button>
-            <button class="action-btn btn-analyze-pr" data-pr-id="${pr.id}" title="Run pattern analysis">
+            <button class="action-btn btn-analyze-pr" data-pr-id="${pr.id}" title="Run PR analysis agent">
               ✨ Analyze
             </button>
           </div>
@@ -231,14 +291,25 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Open PR details modal
+   * Open PR details modal with complete evidence and AI analysis
    */
   const openDetailsModal = async (prId) => {
     selectedPRId = prId;
-    const pr = allPullRequests.find((p) => p.id === prId || p.id === parseInt(prId));
+    let pr = allPullRequests.find((p) => String(p.id) === String(prId));
+
+    if (!detailsModal || !modalBody) return;
+
+    // Fetch full PR details from backend to ensure active alerts and full analysis data are present
+    try {
+      const resp = await APP.api.get(`/pull-requests/${prId}`);
+      if (resp && resp.data) {
+        pr = resp.data;
+      }
+    } catch (e) {
+      console.warn("Could not fetch PR detail, using cached:", e);
+    }
 
     if (!pr) {
-      console.error("PR not found");
       showError("Pull request not found");
       return;
     }
@@ -246,89 +317,67 @@ const PULL_REQUESTS = (() => {
     const prNumber = pr.number ?? pr.pr_number ?? "?";
     const repoName = pr.repository || pr.repo_full_name || "—";
     const authorName = pr.author || pr.contributor_username || "Unknown";
-    const statusVal = pr.status || pr.state || "open";
+    const statusVal = (pr.status || pr.state || "open").toLowerCase();
     const reviewStatus = pr.review_status || (pr.risk_level === "HIGH" ? "changes_requested" : (statusVal === "merged" ? "approved" : "pending"));
 
-    // Set header info
     document.getElementById("modal-pr-title").textContent = pr.title;
     document.getElementById("modal-pr-number").textContent = `#${prNumber} in ${repoName}`;
 
-    // Build details HTML
+    // Render basic overview
     let detailsHTML = `
-      <div class="pr-details-section">
-        <div class="pr-details-label">Author</div>
-        <div class="pr-details-value">
-          <strong>${escapeHtml(authorName)}</strong>
-          ${pr.contributor_trust_score !== undefined ? ` • Trust Score: ${pr.contributor_trust_score}/100 (${pr.contributor_status || 'NEW'})` : ""}
+      <div class="pr-section-card" style="margin-bottom: var(--space-4);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3);">
+          <div>
+            <div class="pr-details-label">Author</div>
+            <div style="font-weight: var(--font-weight-semibold);">${escapeHtml(authorName)}</div>
+            <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">
+              Score: ${pr.contributor_trust_score ?? 50}/100 • ${pr.contributor_status || "NEW"}
+            </div>
+          </div>
+          <div>
+            <div class="pr-details-label">Status</div>
+            <span class="status-badge ${statusVal}">${statusVal.toUpperCase()}</span>
+          </div>
+          <div>
+            <div class="pr-details-label">Review Status</div>
+            <span class="review-badge ${reviewStatus}">${
+              reviewStatus === "approved" ? "Approved" : (reviewStatus === "changes_requested" ? "Changes Requested" : "Pending Review")
+            }</span>
+          </div>
+          <div>
+            <div class="pr-details-label">RAMPART Risk Level</div>
+            <span class="review-badge ${pr.risk_level === 'HIGH' ? 'changes_requested' : (pr.risk_level === 'MEDIUM' ? 'pending' : 'approved')}">
+              ${pr.risk_level || "UNKNOWN"}
+            </span>
+          </div>
         </div>
-      </div>
-
-      <div class="pr-details-section">
-        <div class="pr-details-label">Repository</div>
-        <div class="pr-details-value">${escapeHtml(repoName)}</div>
-      </div>
-
-      <div class="pr-details-section">
-        <div class="pr-details-label">Status</div>
-        <div class="pr-details-value">
-          <span class="status-badge ${statusVal}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
-          ${pr.risk_level ? `<span class="review-badge ${pr.risk_level === 'HIGH' ? 'changes_requested' : 'approved'}" style="margin-left: 8px;">Risk: ${pr.risk_level}</span>` : ""}
-        </div>
-      </div>
-
-      <div class="pr-details-section">
-        <div class="pr-details-label">Review Status</div>
-        <div class="pr-details-value">
-          <span class="review-badge ${reviewStatus}">${
-      reviewStatus === "approved"
-        ? "Approved"
-        : reviewStatus === "changes_requested"
-          ? "Changes Requested"
-          : "Pending Review"
-    }</span>
-        </div>
-      </div>
-
-      <div class="pr-details-section">
-        <div class="pr-details-label">Created</div>
-        <div class="pr-details-value">${
-          pr.created_at ? new Date(pr.created_at).toLocaleString() : "Unknown"
-        }</div>
       </div>
     `;
 
-    // Add description if available
+    // PR description
     const desc = pr.description || pr.body;
     if (desc) {
       detailsHTML += `
         <div class="pr-details-section">
-          <div class="pr-details-label">Description</div>
+          <div class="pr-details-label">PR Description</div>
           <div class="pr-details-description">${escapeHtml(desc)}</div>
         </div>
       `;
     }
 
-    // Add file changes
-    if (pr.files_changed !== undefined) {
+    // Render existing structured analysis if available
+    const analysisData = pr.analysis_data;
+    if (analysisData) {
+      detailsHTML += renderStructuredReportHTML(analysisData);
+    } else {
       detailsHTML += `
-        <div class="pr-details-section">
-          <div class="pr-details-label">Code Changes</div>
-          <div class="pr-details-value">
-            ${pr.files_changed} file(s) changed
-            ${(pr.additions || pr.deletions) ? ` (+${pr.additions || 0} / -${pr.deletions || 0})` : ""}
+        <div class="pr-analysis-section" id="modal-analysis-container" style="text-align: center; padding: var(--space-4);">
+          <div style="color: var(--color-text-secondary); margin-bottom: var(--space-3); font-size: var(--font-size-sm);">
+            No deep pattern analysis on record for this pull request.
           </div>
-        </div>
-      `;
-    }
-
-    // Add analysis summary if available
-    if (pr.analysis_summary) {
-      detailsHTML += `
-        <div class="pr-details-section">
-          <div class="pr-details-label">Analysis Summary</div>
-          <div class="pr-details-description" style="background: var(--color-surface); padding: var(--space-3); border-radius: var(--radius-md); border-left: 3px solid var(--color-primary);">
-            ${escapeHtml(pr.analysis_summary)}
-          </div>
+          <button class="btn btn-primary" onclick="PULL_REQUESTS.runModalAnalysis()">
+            ✨ Run Local Agent Analysis
+          </button>
         </div>
       `;
     }
@@ -338,18 +387,183 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Close PR details modal
+   * Render HTML for Observed Evidence and AI Conclusions
+   */
+  const renderStructuredReportHTML = (analysis) => {
+    const evidence = analysis.observed_evidence || {};
+    const ai = analysis.ai_analysis || {};
+    const modelRuntime = analysis.model_runtime || ai.model_runtime || {};
+    const findings = analysis.findings || [];
+
+    const isTestPass = evidence.has_test_evidence;
+    const testBadge = isTestPass
+      ? '<span class="status-badge merged" style="font-size: 11px;">✓ Automated Tests Included</span>'
+      : '<span class="status-badge closed" style="font-size: 11px;">⚠️ Missing Test Evidence</span>';
+
+    const testFiles = evidence.test_files || [];
+    const filesList = evidence.files_list || [];
+    const sensitiveFiles = evidence.sensitive_files || [];
+
+    let html = `
+      <!-- 1. OBSERVED TECHNICAL EVIDENCE (FACTS & METRICS) -->
+      <div class="pr-section-card" style="border-left: 4px solid var(--color-primary);">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>🔍 1. Observed Technical Evidence</span>
+          </span>
+          <span style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;">
+            Deterministic Facts
+          </span>
+        </div>
+
+        <div class="pr-evidence-grid">
+          <div class="pr-evidence-item">
+            <div class="pr-evidence-item__label">Files Changed</div>
+            <div class="pr-evidence-item__value">${evidence.files_changed_count ?? analysis.files_changed ?? 1}</div>
+          </div>
+          <div class="pr-evidence-item">
+            <div class="pr-evidence-item__label">Lines Added / Removed</div>
+            <div class="pr-evidence-item__value">
+              <span style="color: #16a34a;">+${evidence.additions ?? 0}</span> / 
+              <span style="color: #dc2626;">-${evidence.deletions ?? 0}</span>
+            </div>
+          </div>
+          <div class="pr-evidence-item">
+            <div class="pr-evidence-item__label">Test Evidence</div>
+            <div style="margin-top: 4px;">${testBadge}</div>
+          </div>
+          <div class="pr-evidence-item">
+            <div class="pr-evidence-item__label">Sensitive Files</div>
+            <div class="pr-evidence-item__value" style="font-size: 12px;">
+              ${sensitiveFiles.length > 0 ? `<span style="color: #dc2626;">${sensitiveFiles.length} detected</span>` : '<span style="color: #16a34a;">None touched</span>'}
+            </div>
+          </div>
+        </div>
+
+        ${
+          testFiles.length > 0
+            ? `<div style="margin-top: var(--space-2); font-size: 12px;">
+                <strong>Identified Test Suites:</strong> 
+                ${testFiles.map((f) => `<span class="pr-file-tag" style="background: rgba(34,197,94,0.1); border-color: #86efac; color: #166534;">${escapeHtml(f)}</span>`).join("")}
+              </div>`
+            : `<div style="margin-top: var(--space-2); font-size: 12px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 4px; border: 1px solid #fef3c7;">
+                <strong>Note:</strong> Pull request modifies application logic without adding or modifying test files in tests/ or test_*.py.
+              </div>`
+        }
+
+        ${
+          filesList.length > 0
+            ? `<details style="margin-top: var(--space-3); font-size: 12px; color: var(--color-text-secondary); cursor: pointer;">
+                <summary style="font-weight: var(--font-weight-medium); color: var(--color-text-primary);">View all ${filesList.length} modified file paths</summary>
+                <div style="margin-top: var(--space-2); max-height: 120px; overflow-y: auto;">
+                  ${filesList.map((f) => `<div class="pr-file-tag">${escapeHtml(f)}</div>`).join("")}
+                </div>
+              </details>`
+            : ""
+        }
+      </div>
+
+      <!-- 2. AI RISK & TECHNICAL ANALYSIS -->
+      <div class="pr-section-card" style="border-left: 4px solid ${analysis.risk_level === 'HIGH' ? '#dc2626' : (analysis.risk_level === 'MEDIUM' ? '#f59e0b' : '#16a34a')};">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>✨ 2. AI Risk & Technical Analysis</span>
+          </span>
+          <span class="model-runtime-badge ${modelRuntime.status === 'online' ? '' : 'offline'}">
+            🤖 ${escapeHtml(modelRuntime.model || "gemma4:26b-mlx")} 
+            (${modelRuntime.status === 'online' ? 'Local MLX Online' : 'Offline Fallback / RAMPART Agent'})
+          </span>
+        </div>
+
+        ${
+          modelRuntime.blocker
+            ? `<div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 4px; padding: 8px 12px; font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
+                <strong>Model Runtime Note:</strong> ${escapeHtml(modelRuntime.blocker)}
+              </div>`
+            : ""
+        }
+
+        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);">
+          <strong>Technical Summary:</strong> ${escapeHtml(ai.technical_changes_summary || analysis.analysis_summary || "Standard PR change.")}
+        </div>
+
+        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-3);">
+          <strong>Test Coverage Assessment:</strong> ${escapeHtml(ai.test_evidence_assessment || "Evaluated by RAMPART pattern engine.")}
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-bg); padding: 8px 12px; border-radius: 4px;">
+          <span style="font-size: 12px; font-weight: var(--font-weight-semibold); text-transform: uppercase;">
+            Calculated Risk Assessment
+          </span>
+          <span class="review-badge ${analysis.risk_level === 'HIGH' ? 'changes_requested' : (analysis.risk_level === 'MEDIUM' ? 'pending' : 'approved')}">
+            ${analysis.risk_level} (Score: ${analysis.risk_score ?? 10}/100)
+          </span>
+        </div>
+      </div>
+
+      <!-- 3. DETAILED FINDINGS & NETWORK EVIDENCE -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>📋 3. Evaluated Signals & Findings (${findings.length})</span>
+          </span>
+        </div>
+
+        <div class="pr-analysis-findings">
+          ${
+            findings.length > 0
+              ? findings
+                  .map((finding) => {
+                    const sev = (finding.severity || "info").toLowerCase();
+                    const alertClass = sev === "caution" ? "danger" : (sev === "warning" ? "warning" : "info");
+                    return `
+                      <div class="alert alert-${alertClass}" style="margin-bottom: var(--space-2); padding: var(--space-3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                          <strong style="font-size: 13px;">${escapeHtml(finding.title)}</strong>
+                          <span style="font-size: 10px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06);">
+                            ${escapeHtml(finding.category || "Signal")}
+                          </span>
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px; color: var(--color-text-secondary);">
+                          ${escapeHtml(finding.description || "")}
+                        </div>
+                        ${
+                          finding.evidence
+                            ? `<div style="font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(0,0,0,0.04); border-radius: 4px;">
+                                <strong>Evidence:</strong> ${escapeHtml(finding.evidence)}
+                              </div>`
+                            : ""
+                        }
+                      </div>
+                    `;
+                  })
+                  .join("")
+              : '<div style="font-size: 12px; color: var(--color-text-secondary);">No risk alerts or suspicious patterns identified.</div>'
+          }
+        </div>
+
+        <div class="pr-analysis-note" style="margin-top: var(--space-3); font-size: 11px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: var(--space-2);">
+          <strong>Maintainer Sovereignty:</strong> RAMPART analysis is strictly advisory and evidence-grounded. Maintainers retain complete authority over merge, review, and contributor decisions.
+        </div>
+      </div>
+    `;
+
+    return html;
+  };
+
+  /**
+   * Close details modal
    */
   const closeDetailsModal = () => {
-    detailsModal.classList.remove("open");
+    if (detailsModal) detailsModal.classList.remove("open");
     selectedPRId = null;
   };
 
   /**
-   * Analyze PR with backend pattern engine
+   * Analyze PR with backend pattern engine and local agent
    */
   const handleAnalyze = async (prId) => {
-    const pr = allPullRequests.find((p) => p.id === prId || p.id === parseInt(prId));
+    const pr = allPullRequests.find((p) => String(p.id) === String(prId));
 
     if (!pr) {
       showError("Pull request not found");
@@ -361,96 +575,59 @@ const PULL_REQUESTS = (() => {
         await openDetailsModal(prId);
       }
 
-      // Show loading state
-      let analysisSection = modalBody.querySelector(".pr-analysis-section");
-      if (!analysisSection) {
-        analysisSection = document.createElement("div");
-        analysisSection.className = "pr-details-section pr-analysis-section";
-        modalBody.appendChild(analysisSection);
+      // Show animated loading state inside modal
+      let analysisContainer = document.getElementById("modal-analysis-container");
+      if (!analysisContainer) {
+        analysisContainer = document.createElement("div");
+        analysisContainer.id = "modal-analysis-container";
+        analysisContainer.className = "pr-details-section";
+        modalBody.appendChild(analysisContainer);
       }
 
-      analysisSection.innerHTML =
-        '<div class="pr-analysis-title"><div class="loading-spinner" style="display: inline-block; margin-right: var(--space-2);"></div>Analyzing PR across RAMPART Trust Network...</div>';
+      analysisContainer.innerHTML = `
+        <div style="text-align: center; padding: var(--space-5); background: var(--color-bg); border-radius: var(--radius-md); border: 1px dashed var(--color-border);">
+          <div class="loading-spinner" style="margin-bottom: var(--space-2);"></div>
+          <div style="font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+            Executing RAMPART PR Analysis Agent...
+          </div>
+          <div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
+            Fetching GitHub diff • Checking test evidence • Verifying Trust Network
+          </div>
+        </div>
+      `;
 
       // Call backend analysis endpoint
       const analysisResult = await APP.api.post(`/pull-requests/${prId}/analyze`, {});
+      const resultData = analysisResult.data || analysisResult;
 
-      // Render analysis results
-      renderAnalysisResults(analysisSection, analysisResult, pr);
+      // Update PR details in place
+      pr.risk_level = resultData.risk_level;
+      pr.analysis_summary = resultData.analysis_summary;
+      pr.analysis_data = resultData;
 
-      // Refresh list in background to reflect updated risk level
+      // Render updated structured report
+      await openDetailsModal(prId);
+
+      // Refresh PR list to reflect updated risk level in table
       const updatedList = await APP.api.get("/pull-requests");
       allPullRequests = Array.isArray(updatedList) ? updatedList : (updatedList.data || allPullRequests);
       applyFiltersAndSearch();
+      renderOverview();
+      showSuccess(`PR #${pr.number ?? pr.pr_number} analyzed successfully (Risk: ${resultData.risk_level})`);
     } catch (error) {
       console.error("Failed to analyze PR:", error);
       showError("Failed to analyze pull request: " + (error.message || "Network error"));
     }
   };
 
-  /**
-   * Render PR analysis results
-   */
-  const renderAnalysisResults = (container, analysis, pr) => {
-    let html = `
-      <div class="pr-analysis-title" style="display: flex; align-items: center; justify-content: space-between;">
-        <span>RAMPART Trust Engine Analysis</span>
-        <span class="review-badge ${analysis.risk_level === 'HIGH' ? 'changes_requested' : 'approved'}">Risk: ${analysis.risk_level}</span>
-      </div>
-    `;
-
-    const findings = analysis.findings || [];
-
-    if (findings.length > 0) {
-      html += '<div class="pr-analysis-findings" style="margin-top: var(--space-3);">';
-
-      findings.forEach((finding) => {
-        const severity = (finding.severity || "info").toLowerCase();
-        const findingClass = severity === "caution" ? "danger" : (severity === "warning" ? "warning" : "info");
-        html += `
-          <div class="alert alert-${findingClass}" style="margin-bottom: var(--space-3); padding: var(--space-3);">
-            <div style="font-weight: var(--font-weight-semibold);">${escapeHtml(finding.title)}</div>
-            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 4px;">
-              ${escapeHtml(finding.description || "")}
-            </div>
-            ${
-              finding.evidence
-                ? `<div style="font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(0,0,0,0.04); border-radius: 4px;">
-                  <strong>Evidence:</strong> ${escapeHtml(finding.evidence)}
-                </div>`
-                : ""
-            }
-          </div>
-        `;
-      });
-
-      html += "</div>";
-    } else if (analysis.analysis_summary) {
-      html += `
-        <div style="color: var(--color-text-primary); font-size: var(--font-size-sm); margin-top: var(--space-2);">
-          ${escapeHtml(analysis.analysis_summary)}
-        </div>
-      `;
-    } else {
-      html += `
-        <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-2);">
-          No suspicious signals detected. PR appears healthy.
-        </div>
-      `;
+  const runModalAnalysis = () => {
+    if (selectedPRId) {
+      handleAnalyze(selectedPRId);
     }
-
-    // Maintainer sovereignty note
-    html += `
-      <div class="pr-analysis-note" style="margin-top: var(--space-3); font-size: 11px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: var(--space-2);">
-        <strong>Note:</strong> RAMPART analysis is informational and evidence-backed. Maintainers retain complete authority for merge, review, and contributor actions.
-      </div>
-    `;
-
-    container.innerHTML = html;
   };
 
   /**
-   * Error/Success Messages
+   * Alert Messages
    */
   const showError = (message) => {
     const alert = document.createElement("div");
@@ -464,7 +641,7 @@ const PULL_REQUESTS = (() => {
     const target = document.querySelector(".page-header");
     if (target && target.parentNode) {
       target.parentNode.insertBefore(alert, target.nextSibling);
-      setTimeout(() => alert.remove(), 5000);
+      setTimeout(() => alert.remove(), 6000);
     }
   };
 
@@ -485,10 +662,10 @@ const PULL_REQUESTS = (() => {
   };
 
   /**
-   * Utility: Escape HTML to prevent XSS
+   * Utility: Escape HTML
    */
   const escapeHtml = (text) => {
-    if (!text) return "";
+    if (text === null || text === undefined) return "";
     const div = document.createElement("div");
     div.textContent = String(text);
     return div.innerHTML;
@@ -496,6 +673,7 @@ const PULL_REQUESTS = (() => {
 
   return {
     init,
+    runModalAnalysis,
   };
 })();
 
