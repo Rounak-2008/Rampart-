@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pull Requests — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <!-- Page-specific styles -->
+    <style>
+      /* PR Management Page */
+
+      .pr-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+      }
+
+      .pr-stat-card {
+        background: linear-gradient(135deg, var(--color-surface) 0%, #fafbfd 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+      }
+
+      .pr-stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .pr-stat-card__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        margin-bottom: var(--space-2);
+      }
+
+      .pr-stat-card__value {
+        font-size: 2rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+
+      /* Search and Filter Bar */
+      .pr-controls {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .pr-search {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .pr-filters {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+
+      .filter-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        background-color: var(--color-primary-light);
+      }
+
+      .filter-btn.active {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+      }
+
+      /* PR Table */
+      .pr-table-container {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .pr-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--font-size-sm);
+      }
+
+      .pr-table thead {
+        background-color: var(--color-bg);
+        border-bottom: 2px solid var(--color-border);
+      }
+
+      .pr-table th {
+        padding: var(--space-4);
+        text-align: left;
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.04em;
+      }
+
+      .pr-table td {
+        padding: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        vertical-align: middle;
+      }
+
+      .pr-table tbody tr {
+        transition: background-color var(--transition-fast);
+      }
+
+      .pr-table tbody tr:hover {
+        background-color: var(--color-bg);
+      }
+
+      .pr-title-cell {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        min-width: 0;
+      }
+
+      .pr-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        font-size: 14px;
+      }
+
+      .pr-info {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+        min-width: 0;
+      }
+
+      .pr-title {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-primary);
+        cursor: pointer;
+        word-break: break-word;
+        text-decoration: none;
+      }
+
+      .pr-title:hover {
+        text-decoration: underline;
+      }
+
+      .pr-number {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      .pr-repo {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .status-badge.open {
+        background-color: var(--color-info-light);
+        color: var(--color-info);
+      }
+
+      .status-badge.merged {
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      .status-badge.closed {
+        background-color: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+
+      .review-badge {
+        display: inline-block;
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .review-badge.pending {
+        background-color: #fef3c7;
+        color: #b45309;
+      }
+
+      .review-badge.approved {
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      .review-badge.changes {
+        background-color: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+
+      .pr-date {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      .pr-actions {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-xs);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+      }
+
+      .action-btn:hover {
+        background-color: var(--color-primary-light);
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+
+      /* Empty state */
+      .pr-empty-state {
+        padding: var(--space-8);
+        text-align: center;
+        color: var(--color-text-secondary);
+      }
+
+      .pr-empty-state__icon {
+        font-size: 48px;
+        margin-bottom: var(--space-3);
+      }
+
+      .pr-empty-state__title {
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-2);
+      }
+
+      /* PR Details Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.5);
+        z-index: var(--z-overlay);
+        align-items: center;
+        justify-content: center;
+        overflow-y: auto;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal__content {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        max-width: 700px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.2s ease;
+        margin: var(--space-4);
+      }
+
+      @keyframes slideUp {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .modal__header {
+        margin-bottom: var(--space-5);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+
+      .modal__header-content {
+        flex: 1;
+      }
+
+      .modal__title {
+        margin: 0 0 var(--space-2);
+        font-size: var(--font-size-lg);
+        word-break: break-word;
+      }
+
+      .modal__subtitle {
+        margin: 0;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+      }
+
+      .modal__close-btn {
+        background: transparent;
+        border: none;
+        font-size: var(--font-size-lg);
+        cursor: pointer;
+        color: var(--color-text-secondary);
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        transition: all var(--transition-fast);
+      }
+
+      .modal__close-btn:hover {
+        background-color: var(--color-bg);
+        color: var(--color-text-primary);
+      }
+
+      .modal__body {
+        margin-bottom: var(--space-5);
+      }
+
+      .pr-details-section {
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .pr-details-section:last-child {
+        border-bottom: none;
+      }
+
+      .pr-details-label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-semibold);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: var(--space-2);
+      }
+
+      .pr-details-value {
+        color: var(--color-text-primary);
+      }
+
+      .pr-details-description {
+        background-color: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+        font-size: var(--font-size-sm);
+        line-height: 1.6;
+        color: var(--color-text-secondary);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .pr-analysis-section {
+        background-color: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        margin-top: var(--space-3);
+      }
+
+      .pr-analysis-title {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-3);
+      }
+
+      .pr-analysis-findings {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .pr-analysis-finding {
+        border-left: 3px solid var(--color-info);
+        padding-left: var(--space-3);
+      }
+
+      .pr-analysis-finding.warning {
+        border-left-color: #f59e0b;
+      }
+
+      .pr-analysis-finding.caution {
+        border-left-color: #f59e0b;
+      }
+
+      .pr-analysis-finding-title {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-1);
+      }
+
+      .pr-analysis-finding-evidence {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        margin-top: var(--space-2);
+      }
+
+      .pr-analysis-note {
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin-top: var(--space-3);
+      }
+
+      .modal__footer {
+        display: flex;
+        gap: var(--space-3);
+        justify-content: flex-end;
+      }
+
+      /* Loading state */
+      .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--color-primary);
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--color-bg) 25%,
+          var(--color-border) 50%,
+          var(--color-bg) 75%
+        );
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+      }
+
+      @keyframes loading {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 767px) {
+        .pr-overview-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .pr-controls {
+          flex-direction: column;
+        }
+
+        .pr-search {
+          min-width: auto;
+        }
+
+        .pr-table {
+          font-size: var(--font-size-xs);
+        }
+
+        .pr-table th,
+        .pr-table td {
+          padding: var(--space-2) var(--space-3);
+        }
+
+        .pr-title {
+          font-size: var(--font-size-xs);
+        }
+
+        .pr-actions {
+          flex-direction: column;
+        }
+
+        .action-btn {
+          width: 100%;
+        }
+
+        .modal__content {
+          padding: var(--space-4);
+          max-width: calc(100% - var(--space-4));
+        }
+
+        .modal__header {
+          flex-direction: column;
+        }
+
+        .modal__close-btn {
+          align-self: flex-start;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Application Shell -->
+    <div class="app-shell" data-page="pull-requests">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="repositories.html" class="nav-link" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link is-active" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="contributors.html" class="nav-link" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="alerts.html" class="nav-link" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="trust-network.html" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="notifications.html" class="nav-link" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+            Signed in as
+          </div>
+          <div style="font-weight: var(--font-weight-semibold); margin-top: var(--space-1);">
+            @gyash7995-oss
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="app-header__left">
+          <button
+            class="btn btn-secondary btn-sm app-header__menu-toggle"
+            title="Toggle menu"
+          >
+            ☰
+          </button>
+        </div>
+
+        <div class="app-header__right">
+          <input
+            type="text"
+            class="form-input app-header__search"
+            placeholder="Search pull requests, contributors…"
+            aria-label="Search"
+          />
+          <button class="btn btn-secondary btn-sm" title="Notifications">
+            🔔
+          </button>
+          <button class="btn btn-secondary btn-sm" title="Profile">
+            👤
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header__title">
+              <h1>Pull Requests</h1>
+              <p class="text-secondary">
+                Monitor and analyze pull requests across your repositories
+              </p>
+            </div>
+          </div>
+
+          <!-- Overview Cards -->
+          <div class="pr-overview-grid" id="overview-container">
+            <div class="pr-stat-card skeleton" style="height: 100px;"></div>
+            <div class="pr-stat-card skeleton" style="height: 100px;"></div>
+            <div class="pr-stat-card skeleton" style="height: 100px;"></div>
+            <div class="pr-stat-card skeleton" style="height: 100px;"></div>
+          </div>
+
+          <!-- Search and Filters -->
+          <div class="pr-controls">
+            <input
+              type="text"
+              class="form-input pr-search"
+              id="search-prs"
+              placeholder="Search by PR title or contributor…"
+            />
+            <div class="pr-filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="open">Open</button>
+              <button class="filter-btn" data-filter="merged">Merged</button>
+              <button class="filter-btn" data-filter="closed">Closed</button>
+            </div>
+          </div>
+
+          <!-- Pull Requests Table -->
+          <div class="pr-table-container">
+            <table class="pr-table" id="pr-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Repository</th>
+                  <th>Author</th>
+                  <th>Status</th>
+                  <th>Review</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pr-tbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: var(--space-5);">
+                    <div class="loading-spinner" style="display: inline-block;"></div>
+                    Loading pull requests...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty State -->
+          <div id="empty-state" class="pr-empty-state" style="display: none;">
+            <div class="pr-empty-state__icon">🎯</div>
+            <h3 class="pr-empty-state__title">No pull requests found</h3>
+            <p>Connect repositories to see pull requests here.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay for mobile nav and modals -->
+    <div class="app-overlay"></div>
+
+    <!-- PR Details Modal -->
+    <div class="modal" id="pr-details-modal">
+      <div class="modal__content">
+        <div class="modal__header">
+          <div class="modal__header-content">
+            <h2 class="modal__title" id="modal-pr-title"></h2>
+            <p class="modal__subtitle" id="modal-pr-number"></p>
+          </div>
+          <button class="modal__close-btn" id="close-modal-btn" title="Close">✕</button>
+        </div>
+
+        <div class="modal__body" id="modal-body">
+          <!-- PR details will be rendered here -->
+        </div>
+
+        <div class="modal__footer">
+          <button class="btn btn-secondary" id="modal-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="pull-requests.js"></script>
+  </body>
+</html>

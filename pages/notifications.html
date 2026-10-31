@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notifications — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <style>
+      .notif-container {
+        max-width: 860px;
+        margin: 0 auto;
+      }
+
+      .notif-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-5);
+        flex-wrap: wrap;
+        gap: var(--space-3);
+      }
+
+      .notif-filters {
+        display: flex;
+        gap: var(--space-2);
+      }
+
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+
+      .filter-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        background-color: var(--color-primary-light);
+      }
+
+      .filter-btn.active {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+      }
+
+      .notif-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .notif-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4) var(--space-5);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-4);
+        transition: all var(--transition-fast);
+        position: relative;
+      }
+
+      .notif-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .notif-card.unread {
+        background: #fdfefe;
+        border-left: 4px solid var(--color-primary);
+      }
+
+      .notif-card.read {
+        opacity: 0.8;
+      }
+
+      .notif-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+
+      .notif-icon.alert { background: #fee2e2; color: #b91c1c; }
+      .notif-icon.vouch { background: #ecfdf5; color: #065f46; }
+      .notif-icon.pr { background: #e0f2fe; color: #0369a1; }
+      .notif-icon.repo { background: #f3e8ff; color: #6b21a8; }
+
+      .notif-content {
+        flex: 1;
+      }
+
+      .notif-title {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        font-size: var(--font-size-md);
+        margin-bottom: 4px;
+      }
+
+      .notif-message {
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-sm);
+        line-height: 1.45;
+        margin-bottom: 6px;
+      }
+
+      .notif-meta {
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .notif-actions {
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app-shell" data-page="notifications">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="repositories.html" class="nav-link" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="contributors.html" class="nav-link" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="alerts.html" class="nav-link" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="trust-network.html" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="notifications.html" class="nav-link is-active" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div class="user-profile">
+            <div class="user-profile__avatar">R</div>
+            <div class="user-profile__info">
+              <div class="user-profile__name">Rounak-2008</div>
+              <div class="user-profile__role">Maintainer</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <button class="app-header__menu-toggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="app-header__search">
+          <span style="color: var(--color-text-secondary); font-size: 13px;">🔔 Notification Hub</span>
+        </div>
+
+        <div class="app-header__actions">
+          <button class="btn btn-secondary btn-sm" id="btn-mark-all-read">
+            ✓ Mark All Read
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <div class="notif-container">
+            <!-- Page Header -->
+            <div class="page-header">
+              <h1 class="page-header__title">Activity & Alert Notifications</h1>
+              <p class="text-secondary">
+                Audit trail of cross-repository events, suspicious pattern flags, peer vouches, and sync operations.
+              </p>
+            </div>
+
+            <!-- Filters & Actions -->
+            <div class="notif-header-actions">
+              <div class="notif-filters">
+                <button class="filter-btn active" data-filter="all">All Notifications</button>
+                <button class="filter-btn" data-filter="unread">Unread Only</button>
+                <button class="filter-btn" data-filter="read">Read</button>
+              </div>
+
+              <button class="btn btn-secondary btn-sm" id="btn-header-read-all">
+                Mark All as Read
+              </button>
+            </div>
+
+            <!-- Notifications List -->
+            <div class="notif-list" id="notif-list">
+              <div style="text-align: center; padding: var(--space-6); color: var(--color-text-secondary);">
+                <div class="loading-spinner" style="display: inline-block;"></div> Loading notifications...
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="notif-empty" style="display: none; padding: var(--space-7); text-align: center;">
+              <div style="font-size: 2.5rem; margin-bottom: var(--space-3);">🔔</div>
+              <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-1);">No notifications</div>
+              <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                You're all caught up!
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay -->
+    <div class="app-overlay"></div>
+
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="notifications.js"></script>
+  </body>
+</html>

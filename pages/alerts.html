@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alerts — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <!-- Page-specific styles -->
+    <style>
+      .alerts-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+      }
+
+      .alert-stat-card {
+        background: linear-gradient(135deg, var(--color-surface) 0%, #fafbfd 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+      }
+
+      .alert-stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .alert-stat-card__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        margin-bottom: var(--space-2);
+      }
+
+      .alert-stat-card__value {
+        font-size: 2rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+
+      /* Controls */
+      .alerts-controls {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .alerts-search {
+        flex: 1;
+        min-width: 240px;
+      }
+
+      .alerts-filters {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+
+      .filter-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        background-color: var(--color-primary-light);
+      }
+
+      .filter-btn.active {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+      }
+
+      /* Alerts Table */
+      .alerts-table-container {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .severity-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .severity-critical, .severity-high {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+      }
+
+      .severity-warning, .severity-medium {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+      }
+
+      .severity-info, .severity-low {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+      }
+
+      .alert-msg-cell {
+        max-width: 380px;
+      }
+
+      .alert-msg-title {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        line-height: 1.35;
+      }
+
+      .alert-msg-desc {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.55);
+        z-index: var(--z-overlay);
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-4);
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal__content {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        max-width: 600px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.2s ease;
+      }
+
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+
+      .alert-detail-row {
+        margin-bottom: var(--space-3);
+      }
+
+      .alert-detail-label {
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .alert-detail-value {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-primary);
+        line-height: 1.45;
+      }
+
+      .evidence-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-primary);
+        line-height: 1.5;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app-shell" data-page="alerts">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="repositories.html" class="nav-link" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="contributors.html" class="nav-link" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="alerts.html" class="nav-link is-active" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="trust-network.html" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="notifications.html" class="nav-link" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div class="user-profile">
+            <div class="user-profile__avatar">R</div>
+            <div class="user-profile__info">
+              <div class="user-profile__name">Rounak-2008</div>
+              <div class="user-profile__role">Maintainer</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <button class="app-header__menu-toggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="app-header__search">
+          <span style="color: var(--color-text-secondary); font-size: 13px;">⚠️ Evidence-Based Alert Intelligence</span>
+        </div>
+
+        <div class="app-header__actions">
+          <button class="btn btn-secondary btn-sm" id="header-btn-notifications" title="Notifications" style="position: relative;">
+            🔔 <span id="header-notif-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: var(--color-danger); color: white; border-radius: 10px; font-size: 10px; padding: 1px 5px; font-weight: bold;"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <!-- Page Header -->
+          <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4);">
+            <div>
+              <h1 class="page-header__title">Alerts & Threat Intelligence</h1>
+              <p class="text-secondary">
+                Cross-repository anomaly detection, duplicate PR patterns, and evidence-backed contributor alerts.
+              </p>
+            </div>
+            <div style="font-size: var(--font-size-xs); background: var(--color-surface); border: 1px solid var(--color-border); padding: 8px 12px; border-radius: var(--radius-md);">
+              <span style="color: var(--color-info); font-weight: bold;">🛡️ Advisory Alerts</span>
+              <span style="display: block; color: var(--color-text-secondary); margin-top: 2px;">Maintainers retain complete review and merge authority.</span>
+            </div>
+          </div>
+
+          <!-- Overview Cards -->
+          <div class="alerts-overview-grid" id="overview-container">
+            <div class="alert-stat-card">
+              <div class="alert-stat-card__label">Active Alerts</div>
+              <div class="alert-stat-card__value" id="stat-active" style="color: var(--color-danger);">—</div>
+            </div>
+            <div class="alert-stat-card">
+              <div class="alert-stat-card__label">Critical Severity</div>
+              <div class="alert-stat-card__value" id="stat-critical" style="color: var(--color-danger);">—</div>
+            </div>
+            <div class="alert-stat-card">
+              <div class="alert-stat-card__label">Warnings</div>
+              <div class="alert-stat-card__value" id="stat-warning" style="color: var(--color-warning);">—</div>
+            </div>
+            <div class="alert-stat-card">
+              <div class="alert-stat-card__label">Resolved / Handled</div>
+              <div class="alert-stat-card__value" id="stat-resolved" style="color: var(--color-success);">—</div>
+            </div>
+          </div>
+
+          <!-- Controls: Search & Filters -->
+          <div class="alerts-controls">
+            <div class="alerts-search">
+              <input
+                type="text"
+                id="search-alerts"
+                class="form-input"
+                placeholder="Search alerts by contributor, repo, or pattern..."
+              />
+            </div>
+
+            <div class="alerts-filters">
+              <div style="display: flex; gap: var(--space-2); align-items: center;">
+                <button class="filter-btn active" data-filter-type="severity" data-value="all">All Severities</button>
+                <button class="filter-btn" data-filter-type="severity" data-value="critical">Critical</button>
+                <button class="filter-btn" data-filter-type="severity" data-value="warning">Warning</button>
+                <button class="filter-btn" data-filter-type="severity" data-value="info">Info</button>
+              </div>
+
+              <div style="display: flex; gap: var(--space-2); align-items: center; margin-left: var(--space-2);">
+                <button class="filter-btn active" data-filter-type="status" data-value="active">Active Only</button>
+                <button class="filter-btn" data-filter-type="status" data-value="resolved">Resolved</button>
+                <button class="filter-btn" data-filter-type="status" data-value="all">All</button>
+              </div>
+
+              <select id="repo-filter-select" class="form-select" style="min-width: 180px; padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm);">
+                <option value="">All Repositories</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Alerts Table -->
+          <div class="alerts-table-container">
+            <table class="table" id="alerts-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Pattern Type</th>
+                  <th>Alert Summary</th>
+                  <th>Target Repository & Contributor</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-tbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">
+                    <div class="loading-spinner" style="display: inline-block;"></div> Loading alerts from RAMPART intelligence engine...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none; padding: var(--space-7); text-align: center;">
+              <div style="font-size: 2.5rem; margin-bottom: var(--space-3);">🛡️</div>
+              <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-1);">No alerts match your filter</div>
+              <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                All repositories in this view are in healthy standing.
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay -->
+    <div class="app-overlay"></div>
+
+    <!-- Alert Details Modal -->
+    <div class="modal" id="alert-modal">
+      <div class="modal__content">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-4);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="modal-severity-badge" class="severity-badge">—</span>
+            <h2 id="modal-title" style="margin: 0; font-size: 1.15rem;">Alert Details</h2>
+          </div>
+          <button class="action-btn" id="modal-close-x" style="font-size: 1.2rem;">✕</button>
+        </div>
+
+        <div class="alert-detail-row">
+          <div class="alert-detail-label">Pattern Type</div>
+          <div class="alert-detail-value" id="modal-pattern-type">—</div>
+        </div>
+
+        <div class="alert-detail-row">
+          <div class="alert-detail-label">Message</div>
+          <div class="alert-detail-value" id="modal-message" style="font-weight: var(--font-weight-medium);">—</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">
+          <div>
+            <div class="alert-detail-label">Affected Repository</div>
+            <div class="alert-detail-value" id="modal-repo">—</div>
+          </div>
+          <div>
+            <div class="alert-detail-label">Flagged Contributor</div>
+            <div class="alert-detail-value" id="modal-contributor">—</div>
+          </div>
+        </div>
+
+        <div class="alert-detail-row" id="modal-pr-row">
+          <div class="alert-detail-label">Associated Pull Request</div>
+          <div class="alert-detail-value" id="modal-pr">—</div>
+        </div>
+
+        <div class="alert-detail-row">
+          <div class="alert-detail-label">Verifiable Evidence Details</div>
+          <div class="evidence-box" id="modal-evidence">—</div>
+        </div>
+
+        <div class="alert-detail-row">
+          <div class="alert-detail-label">Resolution Status</div>
+          <div class="alert-detail-value" id="modal-resolution-info">—</div>
+        </div>
+
+        <div style="display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: var(--space-5); border-top: 1px solid var(--color-border); padding-top: var(--space-4);">
+          <button class="btn btn-secondary btn-sm" id="modal-close-btn">Close</button>
+          <button class="btn btn-success btn-sm" id="modal-resolve-btn">✓ Mark as Resolved</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="alerts.js"></script>
+  </body>
+</html>
