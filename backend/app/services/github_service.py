@@ -2,7 +2,7 @@ import hmac
 import hashlib
 import sqlite3
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from app.config import GITHUB_TOKEN, WEBHOOK_SECRET
 from app.services.trust_service import recalculate_contributor_trust
