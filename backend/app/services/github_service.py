@@ -85,6 +85,19 @@ async def verify_github_auth() -> Dict[str, Any]:
             "scopes": []
         }
 
+async def fetch_github_user_repos() -> List[Dict[str, Any]]:
+    headers = get_github_headers()
+    if "Authorization" not in headers:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://api.github.com/user/repos?per_page=50&sort=updated", headers=headers)
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception:
+        pass
+    return []
+
 async def fetch_github_repo_info(owner: str, name: str) -> Optional[Dict[str, Any]]:
     headers = get_github_headers()
     url = f"https://api.github.com/repos/{owner}/{name}"

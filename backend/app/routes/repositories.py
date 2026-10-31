@@ -1,11 +1,33 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import get_db
 from app.models import APIResponse, RepositoryCreate, RepositoryResponse
-from app.services.github_service import fetch_github_repo_info, sync_repository_from_github
+from app.services.github_service import fetch_github_repo_info, sync_repository_from_github, fetch_github_user_repos
 from datetime import datetime, timezone
 import sqlite3
 
 router = APIRouter(prefix="/api/repositories", tags=["Repositories"])
+
+@router.get("/discover", response_model=APIResponse)
+async def discover_user_repositories():
+    gh_repos = await fetch_github_user_repos()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT full_name FROM repositories")
+        connected_names = {r["full_name"] for r in cursor.fetchall()}
+    
+    results = []
+    for r in gh_repos:
+        results.append({
+            "github_id": r.get("id"),
+            "name": r.get("name"),
+            "full_name": r.get("full_name"),
+            "owner": (r.get("owner") or {}).get("login"),
+            "description": r.get("description"),
+            "html_url": r.get("html_url"),
+            "is_private": r.get("private", False),
+            "is_connected": r.get("full_name") in connected_names
+        })
+    return APIResponse(success=True, data=results)
 
 @router.get("", response_model=APIResponse)
 def list_repositories():

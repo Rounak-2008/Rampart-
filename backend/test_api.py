@@ -70,6 +70,9 @@ def test_all_endpoints():
     repos = r.json().get("data", [])
     print(f"     Found {len(repos)} connected repositories")
 
+    r = client.get("/api/repositories/discover")
+    check("GET /api/repositories/discover", r)
+
     # Connect with { owner, repo } (format sent by Claude Code frontend)
     ts = int(time.time())
     test_repo = {

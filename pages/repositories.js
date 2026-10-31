@@ -37,6 +37,10 @@ const REPOSITORIES = (() => {
 
   const attachEventListeners = () => {
     connectBtn.addEventListener("click", openConnectModal);
+    const emptyConnectBtn = document.getElementById("empty-state-connect-btn");
+    if (emptyConnectBtn) {
+      emptyConnectBtn.addEventListener("click", openConnectModal);
+    }
     closeModalBtn.addEventListener("click", closeConnectModal);
     connectSubmitBtn.addEventListener("click", handleConnect);
     repoUrlInput.addEventListener("keypress", (e) => {
@@ -230,12 +234,45 @@ const REPOSITORIES = (() => {
   /**
    * Connect Repository Modal
    */
-  const openConnectModal = () => {
+  const openConnectModal = async () => {
     connectModal.classList.add("open");
     repoUrlInput.focus();
     repoUrlInput.value = "";
     urlError.style.display = "none";
     urlError.textContent = "";
+
+    const discoverGroup = document.getElementById("discover-repo-group");
+    const discoverSelect = document.getElementById("discover-repo-select");
+
+    if (discoverGroup && discoverSelect) {
+      try {
+        const res = await APP.api.get("/repositories/discover");
+        const repos = Array.isArray(res) ? res : (res.data || []);
+        const unconnected = repos.filter((r) => !r.is_connected);
+        if (unconnected.length > 0) {
+          discoverGroup.style.display = "block";
+          discoverSelect.innerHTML =
+            '<option value="">-- Choose an accessible repository --</option>' +
+            unconnected
+              .map(
+                (r) =>
+                  `<option value="${escapeHtml(r.full_name)}">${escapeHtml(r.full_name)}${
+                    r.is_private ? " (Private)" : ""
+                  }</option>`
+              )
+              .join("");
+          discoverSelect.onchange = (e) => {
+            if (e.target.value) {
+              repoUrlInput.value = e.target.value;
+            }
+          };
+        } else {
+          discoverGroup.style.display = "none";
+        }
+      } catch (_) {
+        discoverGroup.style.display = "none";
+      }
+    }
   };
 
   const closeConnectModal = () => {

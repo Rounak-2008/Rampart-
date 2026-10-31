@@ -96,12 +96,16 @@
         background: var(--color-surface);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
-        overflow: hidden;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
         box-shadow: var(--shadow-sm);
+        width: 100%;
+        max-width: 100%;
       }
 
       .repos-table {
         width: 100%;
+        min-width: 720px;
         border-collapse: collapse;
         font-size: var(--font-size-sm);
       }
@@ -515,7 +519,7 @@
             <div class="repo-empty-state__icon">📭</div>
             <h3 class="repo-empty-state__title">No repositories yet</h3>
             <p>Connect your first GitHub repository to get started.</p>
-            <button class="btn btn-primary" style="margin-top: var(--space-4);">
+            <button class="btn btn-primary" id="empty-state-connect-btn" style="margin-top: var(--space-4);">
               + Connect Repository
             </button>
           </div>
@@ -547,6 +551,13 @@
               Enter the full URL or owner/repository format
             </div>
             <div class="form-error" id="url-error" style="display: none;"></div>
+          </div>
+
+          <div class="form-group" id="discover-repo-group" style="margin-top: var(--space-4); display: none;">
+            <label class="form-label" for="discover-repo-select">Or Quick-Select from Your GitHub Repositories</label>
+            <select class="form-input" id="discover-repo-select" style="width: 100%;">
+              <option value="">-- Choose an accessible repository --</option>
+            </select>
           </div>
         </div>
 
