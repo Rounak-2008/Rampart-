@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <!-- Dashboard-specific styles -->
+    <style>
+      /* ================================================================
+         Dashboard Premium Styling
+         ================================================================ */
+
+      /* Overview Cards Grid */
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: var(--space-5);
+        margin-bottom: var(--space-6);
+      }
+
+      .metric-card {
+        background: linear-gradient(135deg, var(--color-surface) 0%, #fafbfd 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-5);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .metric-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+        transform: translateY(-2px);
+      }
+
+      .metric-label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .metric-value {
+        font-size: 2.5rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+        line-height: 1;
+      }
+
+      .metric-change {
+        font-size: var(--font-size-xs);
+        color: var(--color-success);
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+      }
+
+      .metric-change.negative {
+        color: var(--color-warning);
+      }
+
+      /* Section Headers */
+      .dashboard-section {
+        margin-bottom: var(--space-6);
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .section-header h2 {
+        margin: 0;
+        font-size: var(--font-size-lg);
+      }
+
+      .section-header-action {
+        font-size: var(--font-size-sm);
+      }
+
+      /* Chart Container */
+      .chart-container {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-5);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: var(--space-6);
+      }
+
+      .chart-canvas {
+        width: 100%;
+        height: 300px;
+        position: relative;
+      }
+
+      /* Bar Chart (SVG) */
+      .bar-chart {
+        width: 100%;
+        height: 300px;
+      }
+
+      .bar-chart__bar {
+        transition: all var(--transition-base);
+      }
+
+      .bar-chart__bar:hover {
+        opacity: 0.8;
+      }
+
+      .bar-chart__label {
+        font-size: 12px;
+        fill: var(--color-text-secondary);
+      }
+
+      .bar-chart__tooltip {
+        position: absolute;
+        background: var(--color-text-primary);
+        color: white;
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-xs);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+      }
+
+      /* Trust Overview Grid */
+      .trust-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+      }
+
+      .trust-stat {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        text-align: center;
+      }
+
+      .trust-stat__number {
+        font-size: 2rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-primary);
+      }
+
+      .trust-stat__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin-top: var(--space-1);
+      }
+
+      /* Alerts Table */
+      .alerts-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .alerts-table tr {
+        border-bottom: 1px solid var(--color-border);
+        transition: background-color var(--transition-fast);
+      }
+
+      .alerts-table tbody tr:hover {
+        background-color: var(--color-bg);
+      }
+
+      .alerts-table th {
+        text-align: left;
+        padding: var(--space-3);
+        background-color: var(--color-bg);
+        font-weight: var(--font-weight-semibold);
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        border-bottom: 2px solid var(--color-border);
+      }
+
+      .alerts-table td {
+        padding: var(--space-3);
+        font-size: var(--font-size-sm);
+      }
+
+      .alert-contributor {
+        font-weight: var(--font-weight-medium);
+        color: var(--color-primary);
+      }
+
+      .alert-severity {
+        display: inline-block;
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .alert-severity.critical {
+        background-color: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+
+      .alert-severity.high {
+        background-color: #fef3c7;
+        color: #d97706;
+      }
+
+      .alert-severity.medium {
+        background-color: #dbeafe;
+        color: var(--color-info);
+      }
+
+      .alert-severity.low {
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      .alert-row-action {
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+      }
+
+      .alerts-table tbody tr:hover .alert-row-action {
+        opacity: 1;
+      }
+
+      /* Repositories Grid */
+      .repos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: var(--space-4);
+      }
+
+      .repo-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .repo-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .repo-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--space-2);
+      }
+
+      .repo-name {
+        font-weight: var(--font-weight-semibold);
+        font-size: var(--font-size-base);
+        color: var(--color-text-primary);
+      }
+
+      .repo-owner {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+      }
+
+      .repo-status {
+        display: inline-block;
+        padding: var(--space-1) var(--space-2);
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .repo-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border);
+      }
+
+      .repo-stat {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+      }
+
+      .repo-stat-label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+      }
+
+      .repo-stat-value {
+        font-size: var(--font-size-md);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+
+      .repo-sync {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      /* Activity Feed */
+      .activity-feed {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+
+      .activity-item {
+        padding: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        gap: var(--space-3);
+        align-items: flex-start;
+        transition: background-color var(--transition-fast);
+      }
+
+      .activity-item:last-child {
+        border-bottom: none;
+      }
+
+      .activity-item:hover {
+        background-color: var(--color-bg);
+      }
+
+      .activity-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+        background-color: var(--color-bg);
+      }
+
+      .activity-icon.pr {
+        background-color: #dbeafe;
+        color: var(--color-info);
+      }
+
+      .activity-icon.vouch {
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      .activity-icon.alert {
+        background-color: var(--color-danger-light);
+        color: var(--color-danger);
+      }
+
+      .activity-content {
+        flex: 1;
+      }
+
+      .activity-title {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-1);
+        font-size: var(--font-size-sm);
+      }
+
+      .activity-detail {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin-bottom: var(--space-1);
+      }
+
+      .activity-time {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      /* Two-column layout for larger sections */
+      .dashboard-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: var(--space-6);
+        margin-bottom: var(--space-6);
+      }
+
+      /* Loading State */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--color-bg) 0%,
+          #e5e7eb 50%,
+          var(--color-bg) 100%
+        );
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+      }
+
+      @keyframes loading {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .skeleton-card {
+        height: 120px;
+        border-radius: var(--radius-lg);
+      }
+
+      .skeleton-text {
+        height: 16px;
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-2);
+      }
+
+      /* Responsive */
+      @media (max-width: 767px) {
+        .metrics-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .trust-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .dashboard-row {
+          grid-template-columns: 1fr;
+        }
+
+        .repos-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .section-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--space-2);
+        }
+
+        .metric-value {
+          font-size: 2rem;
+        }
+
+        .chart-canvas {
+          height: 250px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Application Shell -->
+    <div class="app-shell" data-page="dashboard">
+      <!-- Sidebar (from layout) -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link is-active" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="#repositories" class="nav-link" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="#contributors" class="nav-link" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="#alerts" class="nav-link" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="#trust-network" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="#notifications" class="nav-link" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+            Signed in as
+          </div>
+          <div style="font-weight: var(--font-weight-semibold); margin-top: var(--space-1);">
+            @gyash7995-oss
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="app-header__left">
+          <button
+            class="btn btn-secondary btn-sm app-header__menu-toggle"
+            title="Toggle menu"
+          >
+            ☰
+          </button>
+        </div>
+
+        <div class="app-header__right">
+          <input
+            type="text"
+            class="form-input app-header__search"
+            placeholder="Search repositories, contributors…"
+            aria-label="Search"
+          />
+          <button class="btn btn-secondary btn-sm" title="Notifications">
+            🔔
+          </button>
+          <button class="btn btn-secondary btn-sm" title="Profile">
+            👤
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header__title">
+              <h1>Dashboard</h1>
+              <p class="text-secondary">
+                Real-time overview of your repositories, contributors, and trust network
+              </p>
+            </div>
+          </div>
+
+          <!-- Metrics Overview -->
+          <section class="metrics-grid" id="metrics-container">
+            <!-- Skeleton loaders while loading -->
+            <div class="metric-card skeleton-card"></div>
+            <div class="metric-card skeleton-card"></div>
+            <div class="metric-card skeleton-card"></div>
+            <div class="metric-card skeleton-card"></div>
+            <div class="metric-card skeleton-card"></div>
+            <div class="metric-card skeleton-card"></div>
+          </section>
+
+          <!-- PR Activity Chart -->
+          <section class="dashboard-section">
+            <div class="section-header">
+              <h2>Pull Request Activity</h2>
+              <a href="#" class="section-header-action text-secondary">View all</a>
+            </div>
+
+            <div class="chart-container">
+              <div id="pr-chart" class="chart-canvas"></div>
+            </div>
+          </section>
+
+          <!-- Trust Overview + Repositories -->
+          <div class="dashboard-row">
+            <!-- Trust Overview -->
+            <section class="dashboard-section">
+              <div class="section-header">
+                <h2>Trust Overview</h2>
+              </div>
+              <div class="trust-grid" id="trust-container">
+                <!-- Skeleton loaders -->
+                <div class="trust-stat skeleton" style="height: 100px; border-radius: var(--radius-md);"></div>
+                <div class="trust-stat skeleton" style="height: 100px; border-radius: var(--radius-md);"></div>
+                <div class="trust-stat skeleton" style="height: 100px; border-radius: var(--radius-md);"></div>
+              </div>
+            </section>
+
+            <!-- Trusted Contributors -->
+            <section class="dashboard-section">
+              <div class="section-header">
+                <h2>Top Contributors</h2>
+              </div>
+              <table class="table" id="trusted-table">
+                <thead>
+                  <tr>
+                    <th>Contributor</th>
+                    <th>Repos</th>
+                    <th>Vouches</th>
+                  </tr>
+                </thead>
+                <tbody id="trusted-tbody">
+                  <tr>
+                    <td colspan="3" style="text-align: center; padding: var(--space-5);">
+                      <div class="skeleton" style="height: 40px; border-radius: var(--radius-md);"></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+          </div>
+
+          <!-- Recent Alerts -->
+          <section class="dashboard-section">
+            <div class="section-header">
+              <h2>Recent Alerts</h2>
+              <a href="#" class="section-header-action text-secondary">View all alerts</a>
+            </div>
+
+            <div class="chart-container">
+              <table class="alerts-table" id="alerts-table">
+                <thead>
+                  <tr>
+                    <th>Contributor</th>
+                    <th>Repository</th>
+                    <th>Alert Type</th>
+                    <th>Severity</th>
+                    <th>Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: var(--space-5);">
+                      <div class="skeleton" style="height: 40px; border-radius: var(--radius-md);"></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Connected Repositories -->
+          <section class="dashboard-section">
+            <div class="section-header">
+              <h2>Connected Repositories</h2>
+              <button class="btn btn-primary btn-sm">+ Add Repository</button>
+            </div>
+
+            <div class="repos-grid" id="repos-container">
+              <!-- Skeleton loaders -->
+              <div class="repo-card skeleton" style="height: 200px; border-radius: var(--radius-lg);"></div>
+              <div class="repo-card skeleton" style="height: 200px; border-radius: var(--radius-lg);"></div>
+              <div class="repo-card skeleton" style="height: 200px; border-radius: var(--radius-lg);"></div>
+            </div>
+          </section>
+
+          <!-- Recent Activity Timeline -->
+          <section class="dashboard-section">
+            <div class="section-header">
+              <h2>Recent Activity</h2>
+              <a href="#" class="section-header-action text-secondary">View timeline</a>
+            </div>
+
+            <div class="activity-feed" id="activity-container">
+              <div style="padding: var(--space-5); text-align: center;">
+                <div class="skeleton" style="height: 60px; border-radius: var(--radius-md);"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay for mobile nav -->
+    <div class="app-overlay"></div>
+
+    <!-- Scripts -->
+    <script src="../js/demo-data.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="dashboard.js"></script>
+  </body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Repositories — RAMPART</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="../css/variables.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+
+    <!-- Page-specific styles -->
+    <style>
+      /* Repository Management Page */
+
+      .repo-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+      }
+
+      .repo-stat-card {
+        background: linear-gradient(135deg, var(--color-surface) 0%, #fafbfd 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-base);
+      }
+
+      .repo-stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+      }
+
+      .repo-stat-card__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        margin-bottom: var(--space-2);
+      }
+
+      .repo-stat-card__value {
+        font-size: 2rem;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-primary);
+      }
+
+      /* Search and Filter Bar */
+      .repo-controls {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .repo-search {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .repo-filters {
+        display: flex;
+        gap: var(--space-2);
+      }
+
+      .filter-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+      }
+
+      .filter-btn:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        background-color: var(--color-primary-light);
+      }
+
+      .filter-btn.active {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+      }
+
+      /* Repository Table */
+      .repos-table-container {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .repos-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--font-size-sm);
+      }
+
+      .repos-table thead {
+        background-color: var(--color-bg);
+        border-bottom: 2px solid var(--color-border);
+      }
+
+      .repos-table th {
+        padding: var(--space-4);
+        text-align: left;
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.04em;
+      }
+
+      .repos-table td {
+        padding: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        vertical-align: middle;
+      }
+
+      .repos-table tbody tr {
+        transition: background-color var(--transition-fast);
+      }
+
+      .repos-table tbody tr:hover {
+        background-color: var(--color-bg);
+      }
+
+      .repo-name-cell {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .repo-icon {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        font-size: 16px;
+      }
+
+      .repo-info {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+      }
+
+      .repo-name {
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+      }
+
+      .repo-owner {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: var(--space-1) var(--space-2);
+        background-color: var(--color-success-light);
+        color: var(--color-success);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .status-badge.inactive {
+        background-color: #f3f4f6;
+        color: var(--color-text-muted);
+      }
+
+      .repo-actions {
+        display: flex;
+        gap: var(--space-2);
+      }
+
+      .action-btn {
+        padding: var(--space-2) var(--space-3);
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-xs);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+      }
+
+      .action-btn:hover {
+        background-color: var(--color-primary-light);
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+
+      .action-btn.danger:hover {
+        background-color: var(--color-danger-light);
+        border-color: var(--color-danger);
+        color: var(--color-danger);
+      }
+
+      /* Empty state */
+      .repo-empty-state {
+        padding: var(--space-8);
+        text-align: center;
+        color: var(--color-text-secondary);
+      }
+
+      .repo-empty-state__icon {
+        font-size: 48px;
+        margin-bottom: var(--space-3);
+      }
+
+      .repo-empty-state__title {
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--space-2);
+      }
+
+      /* Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.5);
+        z-index: var(--z-overlay);
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal__content {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        max-width: 500px;
+        width: 90%;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.2s ease;
+      }
+
+      @keyframes slideUp {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .modal__header {
+        margin-bottom: var(--space-5);
+      }
+
+      .modal__title {
+        margin: 0 0 var(--space-2);
+        font-size: var(--font-size-lg);
+      }
+
+      .modal__subtitle {
+        margin: 0;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+      }
+
+      .modal__body {
+        margin-bottom: var(--space-5);
+      }
+
+      .modal__footer {
+        display: flex;
+        gap: var(--space-3);
+        justify-content: flex-end;
+      }
+
+      /* Confirmation Dialog */
+      .confirmation-modal__message {
+        margin-bottom: var(--space-4);
+        color: var(--color-text-secondary);
+      }
+
+      /* Loading state */
+      .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--color-primary);
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Sync status */
+      .sync-time {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+      }
+
+      .sync-time.syncing {
+        color: var(--color-info);
+      }
+
+      /* Responsive */
+      @media (max-width: 767px) {
+        .repo-overview-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .repo-controls {
+          flex-direction: column;
+        }
+
+        .repo-search {
+          min-width: auto;
+        }
+
+        .repos-table {
+          font-size: var(--font-size-xs);
+        }
+
+        .repos-table th,
+        .repos-table td {
+          padding: var(--space-2) var(--space-3);
+        }
+
+        .repo-actions {
+          flex-direction: column;
+        }
+
+        .action-btn {
+          width: 100%;
+        }
+
+        .modal__content {
+          padding: var(--space-4);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Application Shell -->
+    <div class="app-shell" data-page="repositories">
+      <!-- Sidebar -->
+      <aside class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <div class="app-sidebar__brand-mark"></div>
+          <div class="app-sidebar__brand-name">RAMPART</div>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          <div class="app-sidebar__section-label">Core</div>
+          <a href="dashboard.html" class="nav-link" data-page="dashboard">
+            <span class="nav-link__icon">📊</span>
+            <span class="nav-link__label">Dashboard</span>
+          </a>
+          <a href="repositories.html" class="nav-link is-active" data-page="repositories">
+            <span class="nav-link__icon">📦</span>
+            <span class="nav-link__label">Repositories</span>
+          </a>
+          <a href="pull-requests.html" class="nav-link" data-page="pull-requests">
+            <span class="nav-link__icon">🔀</span>
+            <span class="nav-link__label">Pull Requests</span>
+          </a>
+          <a href="#contributors" class="nav-link" data-page="contributors">
+            <span class="nav-link__icon">👥</span>
+            <span class="nav-link__label">Contributors</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Trust Network</div>
+          <a href="#alerts" class="nav-link" data-page="alerts">
+            <span class="nav-link__icon">⚠️</span>
+            <span class="nav-link__label">Alerts</span>
+          </a>
+          <a href="#trust-network" class="nav-link" data-page="trust-network">
+            <span class="nav-link__icon">🔗</span>
+            <span class="nav-link__label">Trust Network</span>
+          </a>
+
+          <div class="app-sidebar__section-label">Other</div>
+          <a href="#notifications" class="nav-link" data-page="notifications">
+            <span class="nav-link__icon">🔔</span>
+            <span class="nav-link__label">Notifications</span>
+          </a>
+          <a href="#settings" class="nav-link" data-page="settings">
+            <span class="nav-link__icon">⚙️</span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+            Signed in as
+          </div>
+          <div style="font-weight: var(--font-weight-semibold); margin-top: var(--space-1);">
+            @gyash7995-oss
+          </div>
+        </div>
+      </aside>
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="app-header__left">
+          <button
+            class="btn btn-secondary btn-sm app-header__menu-toggle"
+            title="Toggle menu"
+          >
+            ☰
+          </button>
+        </div>
+
+        <div class="app-header__right">
+          <input
+            type="text"
+            class="form-input app-header__search"
+            placeholder="Search repositories, contributors…"
+            aria-label="Search"
+          />
+          <button class="btn btn-secondary btn-sm" title="Notifications">
+            🔔
+          </button>
+          <button class="btn btn-secondary btn-sm" title="Profile">
+            👤
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="app-main">
+        <div class="app-main__inner">
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="page-header__title">
+              <h1>Repositories</h1>
+              <p class="text-secondary">
+                Manage connected GitHub repositories and monitor pull requests
+              </p>
+            </div>
+            <button class="btn btn-primary" id="connect-repo-btn">
+              + Connect Repository
+            </button>
+          </div>
+
+          <!-- Overview Cards -->
+          <div class="repo-overview-grid" id="overview-container">
+            <div class="repo-stat-card skeleton" style="height: 100px;"></div>
+            <div class="repo-stat-card skeleton" style="height: 100px;"></div>
+            <div class="repo-stat-card skeleton" style="height: 100px;"></div>
+            <div class="repo-stat-card skeleton" style="height: 100px;"></div>
+          </div>
+
+          <!-- Search and Filters -->
+          <div class="repo-controls">
+            <input
+              type="text"
+              class="form-input repo-search"
+              id="search-repos"
+              placeholder="Search by repository name…"
+            />
+            <div class="repo-filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="active">Active</button>
+              <button class="filter-btn" data-filter="inactive">Inactive</button>
+            </div>
+          </div>
+
+          <!-- Repositories Table -->
+          <div class="repos-table-container">
+            <table class="repos-table" id="repos-table">
+              <thead>
+                <tr>
+                  <th>Repository</th>
+                  <th>Status</th>
+                  <th>Open PRs</th>
+                  <th>Contributors</th>
+                  <th>Alerts</th>
+                  <th>Last Sync</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="repos-tbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: var(--space-5);">
+                    <div class="loading-spinner" style="display: inline-block;"></div>
+                    Loading repositories...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty State -->
+          <div id="empty-state" class="repo-empty-state" style="display: none;">
+            <div class="repo-empty-state__icon">📭</div>
+            <h3 class="repo-empty-state__title">No repositories yet</h3>
+            <p>Connect your first GitHub repository to get started.</p>
+            <button class="btn btn-primary" style="margin-top: var(--space-4);">
+              + Connect Repository
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Overlay for mobile nav and modals -->
+    <div class="app-overlay"></div>
+
+    <!-- Connect Repository Modal -->
+    <div class="modal" id="connect-modal">
+      <div class="modal__content">
+        <div class="modal__header">
+          <h2 class="modal__title">Connect Repository</h2>
+          <p class="modal__subtitle">Enter your GitHub repository details</p>
+        </div>
+
+        <div class="modal__body">
+          <div class="form-group">
+            <label class="form-label" for="repo-url">Repository URL or Owner/Repo</label>
+            <input
+              type="text"
+              class="form-input"
+              id="repo-url"
+              placeholder="e.g., github.com/owner/repo or owner/repo"
+            />
+            <div class="form-help">
+              Enter the full URL or owner/repository format
+            </div>
+            <div class="form-error" id="url-error" style="display: none;"></div>
+          </div>
+        </div>
+
+        <div class="modal__footer">
+          <button class="btn btn-secondary" id="close-modal-btn">Cancel</button>
+          <button class="btn btn-primary" id="connect-submit-btn">Connect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmation-modal">
+      <div class="modal__content">
+        <div class="modal__header">
+          <h2 class="modal__title">Disconnect Repository?</h2>
+        </div>
+
+        <div class="modal__body">
+          <p class="confirmation-modal__message">
+            Are you sure you want to disconnect this repository? You can reconnect it
+            anytime.
+          </p>
+        </div>
+
+        <div class="modal__footer">
+          <button class="btn btn-secondary" id="confirm-cancel-btn">Cancel</button>
+          <button class="btn btn-danger" id="confirm-disconnect-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="repositories.js"></script>
+  </body>
+</html>

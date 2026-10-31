@@ -1,0 +1,219 @@
+/* ==========================================================================
+   RAMPART — Application Shell Layout
+   Header + Sidebar + Main content grid, shared by every page.
+   ========================================================================== */
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--layout-sidebar-width) 1fr;
+  grid-template-rows: var(--layout-header-height) 1fr;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar main";
+  transition: grid-template-columns var(--transition-base);
+}
+
+.app-shell.is-sidebar-collapsed {
+  grid-template-columns: var(--layout-sidebar-width-collapsed) 1fr;
+}
+
+/* ---- Header ------------------------------------------------------------ */
+.app-header {
+  grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--layout-header-height);
+  padding: 0 var(--space-5);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header__left,
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-header__menu-toggle {
+  display: none;
+}
+
+.app-header__search {
+  width: 280px;
+}
+
+/* ---- Sidebar ------------------------------------------------------------ */
+.app-sidebar {
+  grid-area: sidebar;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: var(--z-sidebar);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+
+.app-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--layout-header-height);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.app-sidebar__brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  flex-shrink: 0;
+}
+
+.app-sidebar__brand-name {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-shell.is-sidebar-collapsed .app-sidebar__brand-name,
+.app-shell.is-sidebar-collapsed .nav-link__label,
+.app-shell.is-sidebar-collapsed .app-sidebar__section-label {
+  display: none;
+}
+
+.app-sidebar__nav {
+  flex: 1;
+  padding: var(--space-4) var(--space-3);
+}
+
+.app-sidebar__section-label {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.app-sidebar__footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ---- Main content -------------------------------------------------------*/
+.app-main {
+  grid-area: main;
+  padding: var(--space-6);
+  width: 100%;
+}
+
+.app-main__inner {
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.page-header__title h1 {
+  margin-bottom: var(--space-1);
+}
+
+/* ---- Overlay for mobile sidebar ----------------------------------------*/
+.app-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  z-index: var(--z-overlay);
+}
+
+.app-shell.is-mobile-nav-open .app-overlay {
+  display: block;
+}
+
+/* ---- Responsive ----------------------------------------------------------
+   Breakpoints:
+   >= 1024px : full sidebar + header, as above
+   768–1023px: sidebar collapses to icon rail by default
+   < 768px   : sidebar becomes an off-canvas drawer, header shows menu toggle
+   ------------------------------------------------------------------------ */
+
+@media (max-width: 1023px) {
+  .app-shell {
+    grid-template-columns: var(--layout-sidebar-width-collapsed) 1fr;
+  }
+
+  .app-sidebar__brand-name,
+  .nav-link__label,
+  .app-sidebar__section-label {
+    display: none;
+  }
+
+  .app-header__search {
+    width: 180px;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main";
+  }
+
+  .app-header__menu-toggle {
+    display: inline-flex;
+  }
+
+  .app-header__search {
+    display: none;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--layout-sidebar-width);
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .app-sidebar__brand-name,
+  .nav-link__label,
+  .app-sidebar__section-label {
+    display: block;
+  }
+
+  .app-shell.is-mobile-nav-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  .app-main {
+    padding: var(--space-4);
+  }
+}
