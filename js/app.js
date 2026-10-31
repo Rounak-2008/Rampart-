@@ -42,6 +42,51 @@ const APP = (() => {
 
     // Initialize page-specific logic
     initPage();
+
+    // Initialize notification header bell
+    initHeaderNotificationBell();
+  };
+
+  const initHeaderNotificationBell = async () => {
+    const notifButtons = document.querySelectorAll('button[title="Notifications"], #header-btn-notifications');
+    if (!notifButtons || notifButtons.length === 0) return;
+
+    notifButtons.forEach((btn) => {
+      btn.style.position = "relative";
+      btn.addEventListener("click", () => {
+        const isPagesDir = window.location.pathname.includes("/pages/");
+        window.location.href = isPagesDir ? "notifications.html" : "pages/notifications.html";
+      });
+    });
+
+    try {
+      const res = await api.get("/notifications");
+      const notifs = Array.isArray(res) ? res : (res.data || []);
+      const unreadCount = notifs.filter((n) => !n.is_read).length;
+
+      if (unreadCount > 0) {
+        notifButtons.forEach((btn) => {
+          let badge = btn.querySelector(".app-notif-badge");
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "app-notif-badge";
+            badge.style.position = "absolute";
+            badge.style.top = "-5px";
+            badge.style.right = "-5px";
+            badge.style.background = "var(--color-danger)";
+            badge.style.color = "white";
+            badge.style.borderRadius = "10px";
+            badge.style.fontSize = "10px";
+            badge.style.fontWeight = "bold";
+            badge.style.padding = "1px 5px";
+            badge.style.lineHeight = "1.2";
+            badge.style.border = "2px solid var(--color-surface)";
+            btn.appendChild(badge);
+          }
+          badge.textContent = unreadCount;
+        });
+      }
+    } catch (_) {}
   };
 
   const toggleMobileNav = () => {
