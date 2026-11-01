@@ -14,13 +14,20 @@ from app.routes.trust import router as trust_router
 from app.routes.alerts import router as alerts_router
 from app.routes.notifications import router as notifications_router
 from app.routes.webhooks import router as webhooks_router
-from app.services.github_service import verify_github_auth
+from app.services.github_service import verify_github_auth, background_repo_sync_loop
+import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize database tables and realistic seed data
     init_db()
-    yield
+    # Start background repository synchronization
+    sync_task = asyncio.create_task(background_repo_sync_loop(interval_seconds=60))
+    try:
+        yield
+    finally:
+        sync_task.cancel()
+        await asyncio.gather(sync_task, return_exceptions=True)
 
 app = FastAPI(
     title="RAMPART Trust Network API",

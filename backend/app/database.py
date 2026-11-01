@@ -6,8 +6,10 @@ from typing import Generator
 from app.config import DB_PATH
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 60000")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
@@ -88,11 +90,53 @@ def init_db() -> None:
                 updated_at TEXT,
                 merged_at TEXT,
                 closed_at TEXT,
+                analysis_data TEXT,
                 FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE,
                 FOREIGN KEY (contributor_id) REFERENCES contributors(id) ON DELETE CASCADE,
                 UNIQUE(repo_id, pr_number)
             )
         """)
+
+        # Migration helper: ensure analysis_data and intelligence columns exist on existing databases
+        cursor.execute("PRAGMA table_info(pull_requests)")
+        pr_cols = [c["name"] for c in cursor.fetchall()]
+        if "analysis_data" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN analysis_data TEXT")
+        if "quality_category" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN quality_category TEXT DEFAULT 'AVERAGE'")
+        if "priority_decision" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN priority_decision TEXT DEFAULT 'NORMAL REVIEW'")
+        if "analysis_status" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN analysis_status TEXT DEFAULT 'pending'")
+        if "content_hash" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN content_hash TEXT")
+        if "analyzed_at" not in pr_cols:
+            cursor.execute("ALTER TABLE pull_requests ADD COLUMN analyzed_at TEXT")
+
+        cursor.execute("PRAGMA table_info(contributors)")
+        c_cols = [c["name"] for c in cursor.fetchall()]
+        if "merged_prs" not in c_cols:
+            cursor.execute("ALTER TABLE contributors ADD COLUMN merged_prs INTEGER DEFAULT 0")
+        if "rejected_prs" not in c_cols:
+            cursor.execute("ALTER TABLE contributors ADD COLUMN rejected_prs INTEGER DEFAULT 0")
+
+        # Webhook Deliveries (for duplicate event protection & idempotency)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                delivery_id TEXT UNIQUE NOT NULL,
+                event TEXT NOT NULL,
+                processed_at TEXT NOT NULL
+            )
+        """)
+
+        # Performance and Deduplication Indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pr_repo_num ON pull_requests(repo_id, pr_number)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pr_quality ON pull_requests(quality_category)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pr_contributor ON pull_requests(contributor_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_pr ON alerts(pr_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_trust_records_contrib ON trust_records(contributor_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_webhook_delivery ON webhook_deliveries(delivery_id)")
 
         # Trust Records (Vouch / Denounce)
         cursor.execute("""

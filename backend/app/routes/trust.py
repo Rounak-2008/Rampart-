@@ -28,11 +28,20 @@ def submit_vouch(payload: VouchCreate):
         else:
             contributor_id = c["id"]
 
+        # Validate repo_id foreign key if supplied
+        repo_id = payload.repo_id
+        if repo_id:
+            cursor.execute("SELECT id FROM repositories WHERE id = ?", (repo_id,))
+            if not cursor.fetchone():
+                cursor.execute("SELECT id FROM repositories LIMIT 1")
+                first_repo = cursor.fetchone()
+                repo_id = first_repo["id"] if first_repo else None
+
         # Insert Vouch record
         cursor.execute("""
             INSERT INTO trust_records (contributor_id, repo_id, author_username, type, category, reason, evidence_url, created_at)
             VALUES (?, ?, ?, 'VOUCH', ?, ?, ?, ?)
-        """, (contributor_id, payload.repo_id, payload.author_username, payload.category, payload.reason, payload.evidence_url, now))
+        """, (contributor_id, repo_id, payload.author_username, payload.category, payload.reason, payload.evidence_url, now))
         record_id = cursor.lastrowid
 
         # Recalculate contributor trust
@@ -75,11 +84,20 @@ def submit_denounce(payload: DenounceCreate):
         else:
             contributor_id = c["id"]
 
+        # Validate repo_id foreign key if supplied
+        repo_id = payload.repo_id
+        if repo_id:
+            cursor.execute("SELECT id FROM repositories WHERE id = ?", (repo_id,))
+            if not cursor.fetchone():
+                cursor.execute("SELECT id FROM repositories LIMIT 1")
+                first_repo = cursor.fetchone()
+                repo_id = first_repo["id"] if first_repo else None
+
         # Insert Denounce record
         cursor.execute("""
             INSERT INTO trust_records (contributor_id, repo_id, author_username, type, category, reason, evidence_url, created_at)
             VALUES (?, ?, ?, 'DENOUNCE', ?, ?, ?, ?)
-        """, (contributor_id, payload.repo_id, payload.author_username, payload.category, payload.reason, payload.evidence_url, now))
+        """, (contributor_id, repo_id, payload.author_username, payload.category, payload.reason, payload.evidence_url, now))
         record_id = cursor.lastrowid
 
         # Recalculate contributor trust

@@ -1,0 +1,18 @@
+diff --git a/backend/app/routes/search.py b/backend/app/routes/search.py
+new file mode 100644
+--- /dev/null
++++ b/backend/app/routes/search.py
+@@ -0,0 +1,22 @@
++from fastapi import APIRouter
++import sqlite3
++
++router = APIRouter()
++
++@router.get("/api/search")
++def search_users(term: str):
++    conn = sqlite3.connect("rampart.db")
++    cursor = conn.cursor()
++    # DANGEROUS: Unparameterized SQL format interpolation
++    query = f"SELECT id, username FROM contributors WHERE username = '{term}'"
++    cursor.execute(query)
++    return cursor.fetchall()

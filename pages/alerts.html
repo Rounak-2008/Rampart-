@@ -95,8 +95,14 @@
         background: var(--color-surface);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
-        overflow: hidden;
+        overflow-x: auto;
         box-shadow: var(--shadow-sm);
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #alerts-table {
+        width: 100%;
+        min-width: 700px;
       }
 
       .severity-badge {
@@ -340,14 +346,14 @@
             </div>
 
             <div class="alerts-filters">
-              <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
                 <button class="filter-btn active" data-filter-type="severity" data-value="all">All Severities</button>
                 <button class="filter-btn" data-filter-type="severity" data-value="critical">Critical</button>
                 <button class="filter-btn" data-filter-type="severity" data-value="warning">Warning</button>
                 <button class="filter-btn" data-filter-type="severity" data-value="info">Info</button>
               </div>
 
-              <div style="display: flex; gap: var(--space-2); align-items: center; margin-left: var(--space-2);">
+              <div style="display: flex; gap: var(--space-2); align-items: center; margin-left: var(--space-2); flex-wrap: wrap;">
                 <button class="filter-btn active" data-filter-type="status" data-value="active">Active Only</button>
                 <button class="filter-btn" data-filter-type="status" data-value="resolved">Resolved</button>
                 <button class="filter-btn" data-filter-type="status" data-value="all">All</button>

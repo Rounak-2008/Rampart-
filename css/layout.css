@@ -15,7 +15,7 @@
 }
 
 .app-shell.is-sidebar-collapsed {
-  grid-template-columns: var(--layout-sidebar-width-collapsed) 1fr;
+  grid-template-columns: var(--layout-sidebar-width-collapsed) minmax(0, 1fr);
 }
 
 /* ---- Header ------------------------------------------------------------ */
@@ -32,6 +32,7 @@
   padding: 0 var(--space-5);
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  min-width: 0;
 }
 
 .app-header__left,
@@ -167,7 +168,7 @@
 
 @media (max-width: 1023px) {
   .app-shell {
-    grid-template-columns: var(--layout-sidebar-width-collapsed) 1fr;
+    grid-template-columns: var(--layout-sidebar-width-collapsed) minmax(0, 1fr);
   }
 
   .app-sidebar__brand-name,

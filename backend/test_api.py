@@ -120,7 +120,7 @@ def test_all_endpoints():
     print("\n--- 6. Trust System (Vouch & Denounce) ---")
     vouch_payload = {
         "contributor_username": "alex-dev",
-        "repo_id": 1,
+        "repo_id": new_repo_id,
         "category": "ARCHITECTURE",
         "reason": "Outstanding test harness design and zero regressions during release audit.",
         "evidence_url": "https://github.com/Rounak-2008/Rampart-/commit/e728491",
@@ -131,7 +131,7 @@ def test_all_endpoints():
 
     denounce_payload = {
         "contributor_username": "pr-spammer99",
-        "repo_id": 1,
+        "repo_id": new_repo_id,
         "category": "ABUSIVE_AUTOMATION",
         "reason": "Submitted scripted non-functional white-space modifications across multiple forks simultaneously.",
         "evidence_url": "https://github.com/Rounak-2008/Rampart-/pull/15",

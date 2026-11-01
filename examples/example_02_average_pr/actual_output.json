@@ -1,0 +1,116 @@
+{
+  "pr_id": 19,
+  "pr_number": 101,
+  "repo_id": 19,
+  "repo_full_name": "acme-org/rampart-core",
+  "title": "refactor(db): Reorganize connection pool queries",
+  "risk_level": "MEDIUM",
+  "risk_score": 35,
+  "quality_category": "AVERAGE",
+  "priority_decision": "NORMAL REVIEW",
+  "analysis_status": "offline_fallback",
+  "analysis_summary": "Source code modification touching 1 file(s). Lacks accompanying test coverage.",
+  "vouches_count": 0,
+  "denounces_count": 0,
+  "generated_alerts": [],
+  "findings": [
+    {
+      "category": "Observed Evidence",
+      "title": "Missing Test Evidence",
+      "description": "PR modifies 1 executable source file(s) without adding or modifying test files. Note: tests were NOT_EXECUTED.",
+      "evidence": "Changed code: backend/app/database.py. Missing tests in tests/ or test_*.py.",
+      "severity": "warning"
+    },
+    {
+      "category": "Trust Network",
+      "title": "New Contributor (Good Standing)",
+      "description": "First interaction with RAMPART network. Contributor 'dev-contributor-2' is in good standing (neutral fair baseline).",
+      "evidence": "No prior cross-repository history. Standard code review advised.",
+      "severity": "info"
+    }
+  ],
+  "observed_evidence": {
+    "files_changed_count": 1,
+    "additions": 35,
+    "deletions": 12,
+    "files_list": [
+      "backend/app/database.py"
+    ],
+    "test_files": [],
+    "has_test_evidence": false,
+    "test_execution_status": "NOT_EXECUTED",
+    "sensitive_files": [],
+    "contributor": {
+      "username": "dev-contributor-2",
+      "trust_score": 50.0,
+      "status": "BEGINNER",
+      "total_prs": 0,
+      "vouches_count": 0,
+      "denounces_count": 0
+    }
+  },
+  "ai_analysis": {
+    "model_runtime": {
+      "model": "gemma4:e4b",
+      "endpoint": "http://127.0.0.1:11434/v1",
+      "status": "offline_fallback",
+      "provider": "Ollama (Local MLX Runner)",
+      "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+    },
+    "is_ai_generated": false,
+    "overall_assessment": "Source code modification touching 1 file(s). Lacks accompanying test coverage.",
+    "what_changed": "Logic changes in backend/app/database.py (+35 / -12).",
+    "technical_findings": [
+      {
+        "file": "backend/app/database.py",
+        "location": "NOT VERIFIED",
+        "issue": "Missing automated tests for modified application logic",
+        "why_it_matters": "Untested code increases risk of regressions in future updates.",
+        "suggested_improvement": "Add corresponding unit tests in tests/ directory."
+      }
+    ],
+    "potential_bugs_and_risks": [
+      "Uncovered edge cases may cause regressions in production."
+    ],
+    "security_and_reliability": {
+      "has_security_concerns": false,
+      "summary": "No dangerous patterns detected, but lacks automated test coverage.",
+      "concerns": []
+    },
+    "test_evidence": {
+      "execution_status": "NOT_EXECUTED",
+      "assessment": "Automated tests were NOT_EXECUTED. Source logic modified without test suites.",
+      "missing_tests": [
+        "tests/test_database.py"
+      ]
+    },
+    "recommended_improvements": [
+      "Add unit tests covering the modified functions.",
+      "Verify behavior with local integration tests."
+    ],
+    "final_ai_recommendation": "NEEDS HUMAN REVIEW",
+    "recommendation_reason": "Substantive logic change lacking automated test suites.",
+    "evidence_references": [
+      "backend/app/database.py"
+    ],
+    "technical_summary": "Source code modification touching 1 file(s). Lacks accompanying test coverage.",
+    "risk_assessment": "MEDIUM",
+    "risk_score": 35,
+    "test_assessment": "Automated tests were NOT_EXECUTED. Source logic modified without test suites.",
+    "architectural_concerns": [
+      "Uncovered edge cases may cause regressions in production."
+    ],
+    "recommendations": [
+      "Add unit tests covering the modified functions.",
+      "Verify behavior with local integration tests."
+    ],
+    "security_findings": []
+  },
+  "model_runtime": {
+    "model": "gemma4:e4b",
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "status": "offline_fallback",
+    "provider": "Ollama (Local MLX Runner)",
+    "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+  }
+}

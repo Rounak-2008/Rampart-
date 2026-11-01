@@ -22,6 +22,8 @@ for env_path in [BASE_DIR / ".env", BASE_DIR.parent / ".env"]:
 DB_PATH = os.getenv("RAMPART_DB_PATH", str(BASE_DIR / "rampart.db"))
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", os.getenv("GH_TOKEN", ""))
 WEBHOOK_SECRET = os.getenv("RAMPART_WEBHOOK_SECRET", "rampart-shared-secret-key")
+LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://127.0.0.1:11434/v1")
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma4:e4b")
 
 CORS_ORIGINS = [
     "http://localhost:5500",

@@ -88,6 +88,9 @@ class PullRequestResponse(BaseModel):
     state: str
     status: Optional[str] = None # Frontend alias ("open", "merged", "closed")
     risk_level: str
+    quality_category: Optional[str] = "AVERAGE" # "GOOD", "AVERAGE", "SPAM", "FLAGGED"
+    priority_decision: Optional[str] = "NORMAL REVIEW" # "PRIORITY REVIEW", "REVIEW — PROMISING CONTRIBUTION", "NORMAL REVIEW", "HIGH-RISK FLAG", "SPAM"
+    analysis_status: Optional[str] = "completed" # "completed", "pending", "offline_fallback"
     review_status: Optional[str] = "pending" # Frontend compatibility ("pending", "approved", "changes_requested")
     analysis_summary: Optional[str] = None
     files_changed: int = 1
@@ -102,6 +105,7 @@ class PullRequestDetailResponse(PullRequestResponse):
     contributor_denounces: int = 0
     active_alerts: List[Dict[str, Any]] = []
     reviews: List[Dict[str, Any]] = []
+    analysis_data: Optional[Dict[str, Any]] = None
 
 # PR Analysis findings
 class AnalysisFinding(BaseModel):
@@ -109,6 +113,7 @@ class AnalysisFinding(BaseModel):
     description: str
     evidence: Optional[str] = None
     severity: str # "warning", "caution", "info"
+    category: Optional[str] = None # "Observed Evidence", "AI Risk Analysis", "Trust Network"
 
 class PullRequestAnalysisResult(BaseModel):
     pr_id: int
@@ -118,6 +123,9 @@ class PullRequestAnalysisResult(BaseModel):
     denounces_count: int = 0
     generated_alerts: List[str] = []
     findings: List[AnalysisFinding] = []
+    observed_evidence: Optional[Dict[str, Any]] = None
+    ai_analysis: Optional[Dict[str, Any]] = None
+    model_runtime: Optional[Dict[str, Any]] = None
 
 # Trust Records (Vouch / Denounce)
 class VouchCreate(BaseModel):

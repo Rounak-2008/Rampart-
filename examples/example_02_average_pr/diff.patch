@@ -1,0 +1,16 @@
+diff --git a/backend/app/database.py b/backend/app/database.py
+--- a/backend/app/database.py
++++ b/backend/app/database.py
+@@ -42,12 +42,35 @@ def get_db_pool():
+-    return sqlite3.connect("rampart.db")
++    # Connect without timeout or retry handling
++    conn = sqlite3.connect("rampart.db", timeout=60.0)
++    conn.execute("PRAGMA journal_mode=WAL;")
++    return conn
++
++def execute_raw_batch(statements):
++    conn = get_db_pool()
++    cursor = conn.cursor()
++    for stmt in statements:
++        cursor.execute(stmt)
++    conn.commit()

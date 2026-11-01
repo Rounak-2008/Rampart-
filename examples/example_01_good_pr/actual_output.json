@@ -1,0 +1,104 @@
+{
+  "pr_id": 18,
+  "pr_number": 100,
+  "repo_id": 19,
+  "repo_full_name": "acme-org/rampart-core",
+  "title": "feat(auth): Add token bucket rate-limiting middleware with tests",
+  "risk_level": "LOW",
+  "risk_score": 10,
+  "quality_category": "GOOD",
+  "priority_decision": "PRIORITY REVIEW",
+  "analysis_status": "offline_fallback",
+  "analysis_summary": "Standard technical contribution (+80 / -0).",
+  "vouches_count": 0,
+  "denounces_count": 0,
+  "generated_alerts": [],
+  "findings": [
+    {
+      "category": "Observed Evidence",
+      "title": "Test Files Present (NOT_EXECUTED)",
+      "description": "Automated test suite files detected (1 file(s)). Execution verification status: NOT_EXECUTED.",
+      "evidence": "Test files: backend/tests/test_rate_limit.py",
+      "severity": "info"
+    },
+    {
+      "category": "Trust Network",
+      "title": "New Contributor (Good Standing)",
+      "description": "First interaction with RAMPART network. Contributor 'charlie-sec' is in good standing (neutral fair baseline).",
+      "evidence": "No prior cross-repository history. Standard code review advised.",
+      "severity": "info"
+    }
+  ],
+  "observed_evidence": {
+    "files_changed_count": 2,
+    "additions": 80,
+    "deletions": 0,
+    "files_list": [
+      "backend/app/middleware/rate_limit.py",
+      "backend/tests/test_rate_limit.py"
+    ],
+    "test_files": [
+      "backend/tests/test_rate_limit.py"
+    ],
+    "has_test_evidence": true,
+    "test_execution_status": "NOT_EXECUTED",
+    "sensitive_files": [],
+    "contributor": {
+      "username": "charlie-sec",
+      "trust_score": 75.0,
+      "status": "ESTABLISHED",
+      "total_prs": 0,
+      "vouches_count": 0,
+      "denounces_count": 0
+    }
+  },
+  "ai_analysis": {
+    "model_runtime": {
+      "model": "gemma4:e4b",
+      "endpoint": "http://127.0.0.1:11434/v1",
+      "status": "offline_fallback",
+      "provider": "Ollama (Local MLX Runner)",
+      "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+    },
+    "is_ai_generated": false,
+    "overall_assessment": "Standard technical contribution (+80 / -0).",
+    "what_changed": "Modified 2 file(s): backend/app/middleware/rate_limit.py, backend/tests/test_rate_limit.py.",
+    "technical_findings": [],
+    "potential_bugs_and_risks": [],
+    "security_and_reliability": {
+      "has_security_concerns": false,
+      "summary": "No security concerns identified in reviewed changes.",
+      "concerns": []
+    },
+    "test_evidence": {
+      "execution_status": "NOT_EXECUTED",
+      "assessment": "Test Files Included: PR contains 1 test suite file(s). Test execution: NOT_EXECUTED (static check).",
+      "missing_tests": []
+    },
+    "recommended_improvements": [
+      "Conduct standard code review and verify behavior locally."
+    ],
+    "final_ai_recommendation": "APPROVE",
+    "recommendation_reason": "Well-formed pull request with no detected code risks or policy violations.",
+    "evidence_references": [
+      "backend/app/middleware/rate_limit.py",
+      "backend/tests/test_rate_limit.py"
+    ],
+    "technical_summary": "Standard technical contribution (+80 / -0).",
+    "risk_assessment": "LOW",
+    "risk_score": 10,
+    "test_assessment": "Test Files Included: PR contains 1 test suite file(s). Test execution: NOT_EXECUTED (static check).",
+    "architectural_concerns": [],
+    "recommendations": [
+      "Conduct standard code review and verify behavior locally."
+    ],
+    "security_findings": []
+  },
+  "model_runtime": {
+    "model": "gemma4:e4b",
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "status": "offline_fallback",
+    "provider": "Ollama (Local MLX Runner)",
+    "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+  }
+}

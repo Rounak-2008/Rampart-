@@ -71,6 +71,9 @@ def list_pull_requests(
                 state=r["state"],
                 status=r["state"],
                 risk_level=r["risk_level"],
+                quality_category=r["quality_category"] if "quality_category" in r.keys() and r["quality_category"] else "AVERAGE",
+                priority_decision=r["priority_decision"] if "priority_decision" in r.keys() and r["priority_decision"] else "NORMAL REVIEW",
+                analysis_status=r["analysis_status"] if "analysis_status" in r.keys() and r["analysis_status"] else "completed",
                 review_status=map_review_status(r["risk_level"], r["state"]),
                 analysis_summary=r["analysis_summary"],
                 files_changed=r["files_changed"],
@@ -112,6 +115,15 @@ def get_pull_request(pr_id: int):
         """, (pr_id,))
         alerts = [dict(a) for a in cursor.fetchall()]
 
+        # Parse stored structured analysis data if available
+        import json
+        analysis_data = None
+        if "analysis_data" in row.keys() and row["analysis_data"]:
+            try:
+                analysis_data = json.loads(row["analysis_data"])
+            except Exception:
+                analysis_data = None
+
         data = PullRequestDetailResponse(
             id=row["id"],
             github_pr_id=row["github_pr_id"],
@@ -134,6 +146,9 @@ def get_pull_request(pr_id: int):
             state=row["state"],
             status=row["state"],
             risk_level=row["risk_level"],
+            quality_category=row["quality_category"] if "quality_category" in row.keys() and row["quality_category"] else "AVERAGE",
+            priority_decision=row["priority_decision"] if "priority_decision" in row.keys() and row["priority_decision"] else "NORMAL REVIEW",
+            analysis_status=row["analysis_status"] if "analysis_status" in row.keys() and row["analysis_status"] else "completed",
             review_status=map_review_status(row["risk_level"], row["state"]),
             analysis_summary=row["analysis_summary"],
             files_changed=row["files_changed"],
@@ -144,7 +159,8 @@ def get_pull_request(pr_id: int):
             updated_at=row["updated_at"],
             contributor_vouches=row["contributor_vouches"],
             contributor_denounces=row["contributor_denounces"],
-            active_alerts=alerts
+            active_alerts=alerts,
+            analysis_data=analysis_data
         )
         return APIResponse(success=True, data=data.model_dump())
 
