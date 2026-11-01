@@ -1,0 +1,125 @@
+{
+  "pr_id": 20,
+  "pr_number": 102,
+  "repo_id": 19,
+  "repo_full_name": "acme-org/rampart-core",
+  "title": "fix(query): Add dynamic user search filtering endpoint",
+  "risk_level": "HIGH",
+  "risk_score": 75,
+  "quality_category": "FLAGGED",
+  "priority_decision": "HIGH-RISK FLAG",
+  "analysis_status": "offline_fallback",
+  "analysis_summary": "High-risk code modification. Detected 2 alert condition(s) requiring thorough review.",
+  "vouches_count": 0,
+  "denounces_count": 0,
+  "generated_alerts": [],
+  "findings": [
+    {
+      "category": "Observed Evidence",
+      "title": "Missing Test Evidence",
+      "description": "PR modifies 1 executable source file(s) without adding or modifying test files. Note: tests were NOT_EXECUTED.",
+      "evidence": "Changed code: backend/app/routes/search.py. Missing tests in tests/ or test_*.py.",
+      "severity": "warning"
+    },
+    {
+      "category": "Observed Evidence",
+      "title": "Dangerous Code Patterns Detected",
+      "description": "Static code analysis detected suspicious execution or credential patterns in PR patch.",
+      "evidence": "Potential unparameterized SQL interpolation in backend/app/routes/search.py",
+      "severity": "caution"
+    },
+    {
+      "category": "Trust Network",
+      "title": "New Contributor (Good Standing)",
+      "description": "First interaction with RAMPART network. Contributor 'guest-coder-99' is in good standing (neutral fair baseline).",
+      "evidence": "No prior cross-repository history. Standard code review advised.",
+      "severity": "info"
+    }
+  ],
+  "observed_evidence": {
+    "files_changed_count": 1,
+    "additions": 22,
+    "deletions": 0,
+    "files_list": [
+      "backend/app/routes/search.py"
+    ],
+    "test_files": [],
+    "has_test_evidence": false,
+    "test_execution_status": "NOT_EXECUTED",
+    "sensitive_files": [],
+    "contributor": {
+      "username": "guest-coder-99",
+      "trust_score": 40.0,
+      "status": "NEUTRAL",
+      "total_prs": 0,
+      "vouches_count": 0,
+      "denounces_count": 0
+    }
+  },
+  "ai_analysis": {
+    "model_runtime": {
+      "model": "gemma4:e4b",
+      "endpoint": "http://127.0.0.1:11434/v1",
+      "status": "offline_fallback",
+      "provider": "Ollama (Local MLX Runner)",
+      "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+    },
+    "is_ai_generated": false,
+    "overall_assessment": "High-risk code modification. Detected 2 alert condition(s) requiring thorough review.",
+    "what_changed": "Modified executable code in backend/app/routes/search.py (+22/-0).",
+    "technical_findings": [
+      {
+        "file": "backend/app/routes/search.py",
+        "location": "NOT VERIFIED",
+        "issue": "Potential unparameterized SQL interpolation in backend/app/routes/search.py",
+        "why_it_matters": "Poses potential security, execution, or stability risk.",
+        "suggested_improvement": "Sanitize inputs, avoid dynamic execution, and ensure least-privilege principles."
+      }
+    ],
+    "potential_bugs_and_risks": [
+      "Potential unparameterized SQL interpolation in backend/app/routes/search.py"
+    ],
+    "security_and_reliability": {
+      "has_security_concerns": true,
+      "summary": "Detected 1 dangerous pattern(s) in code patch.",
+      "concerns": [
+        "Potential unparameterized SQL interpolation in backend/app/routes/search.py"
+      ]
+    },
+    "test_evidence": {
+      "execution_status": "NOT_EXECUTED",
+      "assessment": "Automated tests were NOT_EXECUTED. High-risk code changes present without verified test execution.",
+      "missing_tests": [
+        "Security regression tests"
+      ]
+    },
+    "recommended_improvements": [
+      "Refactor dangerous code patterns before considering approval.",
+      "Conduct human security audit."
+    ],
+    "final_ai_recommendation": "REQUEST CHANGES",
+    "recommendation_reason": "High-risk code patterns detected in pull request patch.",
+    "evidence_references": [
+      "backend/app/routes/search.py"
+    ],
+    "technical_summary": "High-risk code modification. Detected 2 alert condition(s) requiring thorough review.",
+    "risk_assessment": "HIGH",
+    "risk_score": 75,
+    "test_assessment": "Automated tests were NOT_EXECUTED. High-risk code changes present without verified test execution.",
+    "architectural_concerns": [
+      "Potential unparameterized SQL interpolation in backend/app/routes/search.py"
+    ],
+    "recommendations": [
+      "Refactor dangerous code patterns before considering approval.",
+      "Conduct human security audit."
+    ],
+    "security_findings": []
+  },
+  "model_runtime": {
+    "model": "gemma4:e4b",
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "status": "offline_fallback",
+    "provider": "Ollama (Local MLX Runner)",
+    "blocker": "Local Ollama endpoint (http://127.0.0.1:11434/v1) unreachable or timed out: ReadTimeout (timed out). Running RAMPART deterministic pattern engine."
+  }
+}

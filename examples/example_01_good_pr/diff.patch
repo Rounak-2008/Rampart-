@@ -1,0 +1,42 @@
+diff --git a/backend/app/middleware/rate_limit.py b/backend/app/middleware/rate_limit.py
+new file mode 100644
+--- /dev/null
++++ b/backend/app/middleware/rate_limit.py
+@@ -0,0 +1,48 @@
++import time
++from collections import defaultdict
++
++class TokenBucketRateLimiter:
++    """Thread-safe token bucket rate limiter for FastAPI routes."""
++    def __init__(self, rate_per_second: float = 10.0, burst_capacity: int = 20):
++        self.rate = rate_per_second
++        self.capacity = burst_capacity
++        self.tokens = defaultdict(lambda: burst_capacity)
++        self.last_check = defaultdict(time.time)
++
++    def is_allowed(self, client_ip: str) -> bool:
++        now = time.time()
++        elapsed = now - self.last_check[client_ip]
++        self.last_check[client_ip] = now
++        self.tokens[client_ip] = min(self.capacity, self.tokens[client_ip] + elapsed * self.rate)
++        if self.tokens[client_ip] >= 1.0:
++            self.tokens[client_ip] -= 1.0
++            return True
++        return False
++
+diff --git a/backend/tests/test_rate_limit.py b/backend/tests/test_rate_limit.py
+new file mode 100644
+--- /dev/null
++++ b/backend/tests/test_rate_limit.py
+@@ -0,0 +1,32 @@
++import unittest
++import time
++from app.middleware.rate_limit import TokenBucketRateLimiter
++
++class TestRateLimiter(unittest.TestCase):
++    def test_burst_allowance(self):
++        limiter = TokenBucketRateLimiter(rate_per_second=5.0, burst_capacity=5)
++        for _ in range(5):
++            self.assertTrue(limiter.is_allowed("127.0.0.1"))
++        self.assertFalse(limiter.is_allowed("127.0.0.1"))
++

@@ -1,0 +1,108 @@
+{
+  "pr_id": 21,
+  "pr_number": 103,
+  "repo_id": 19,
+  "repo_full_name": "acme-org/rampart-core",
+  "title": "chore: formatting and trivial spacing",
+  "risk_level": "LOW",
+  "risk_score": 5,
+  "quality_category": "SPAM",
+  "priority_decision": "SPAM",
+  "analysis_status": "completed",
+  "analysis_summary": "This pull request introduces minor formatting changes to the README.md file, specifically adjusting spacing around the main title. The changes are trivial and do not impact functionality or security.",
+  "vouches_count": 0,
+  "denounces_count": 0,
+  "generated_alerts": [],
+  "findings": [
+    {
+      "category": "Observed Evidence",
+      "title": "Documentation / Non-Code Changes",
+      "description": "Changes are confined to documentation or markdown text.",
+      "evidence": "Files: README.md",
+      "severity": "info"
+    },
+    {
+      "category": "Trust Network",
+      "title": "New Contributor (Good Standing)",
+      "description": "First interaction with RAMPART network. Contributor 'spam-bot-01' is in good standing (neutral fair baseline).",
+      "evidence": "No prior cross-repository history. Standard code review advised.",
+      "severity": "info"
+    }
+  ],
+  "observed_evidence": {
+    "files_changed_count": 1,
+    "additions": 2,
+    "deletions": 1,
+    "files_list": [
+      "README.md"
+    ],
+    "test_files": [],
+    "has_test_evidence": false,
+    "test_execution_status": "NOT_EXECUTED",
+    "sensitive_files": [],
+    "contributor": {
+      "username": "spam-bot-01",
+      "trust_score": 20.0,
+      "status": "FLAGGED",
+      "total_prs": 0,
+      "vouches_count": 0,
+      "denounces_count": 0
+    }
+  },
+  "ai_analysis": {
+    "model_runtime": {
+      "model": "gemma4:e4b",
+      "endpoint": "http://127.0.0.1:11434/v1",
+      "status": "online",
+      "provider": "Ollama (Local MLX Runner)",
+      "blocker": null
+    },
+    "is_ai_generated": true,
+    "overall_assessment": "This pull request introduces minor formatting changes to the README.md file, specifically adjusting spacing around the main title. The changes are trivial and do not impact functionality or security.",
+    "what_changed": "In README.md, the formatting of the main title ('# RAMPART') was modified by adding a trailing space and an extra blank line.",
+    "technical_findings": [
+      {
+        "file": "README.md",
+        "location": "@@ -1,4 +1,5 @@",
+        "issue": "Inconsistent spacing introduced after the main title.",
+        "why_it_matters": "While minor, inconsistent spacing can affect the visual presentation and professional appearance of the documentation.",
+        "suggested_improvement": "Ensure consistent use of markdown formatting (e.g., remove the trailing space on the title line if it is not intended)."
+      }
+    ],
+    "potential_bugs_and_risks": [],
+    "security_and_reliability": {
+      "has_security_concerns": false,
+      "summary": "No security or reliability concerns were found as the changes are purely cosmetic and confined to documentation.",
+      "concerns": []
+    },
+    "test_evidence": {
+      "execution_status": "NOT_EXECUTED",
+      "assessment": "This is a documentation-only change; no functional tests are required.",
+      "missing_tests": []
+    },
+    "recommended_improvements": [
+      "Review the desired visual style guide for the README and ensure the spacing aligns with it."
+    ],
+    "final_ai_recommendation": "REQUEST CHANGES",
+    "recommendation_reason": "Trivial non-functional whitespace or automated churn pattern detected.",
+    "evidence_references": [
+      "README.md"
+    ],
+    "technical_summary": "This pull request introduces minor formatting changes to the README.md file, specifically adjusting spacing around the main title. The changes are trivial and do not impact functionality or security.",
+    "risk_assessment": "LOW",
+    "risk_score": 5,
+    "test_assessment": "This is a documentation-only change; no functional tests are required.",
+    "architectural_concerns": [],
+    "recommendations": [
+      "Review the desired visual style guide for the README and ensure the spacing aligns with it."
+    ],
+    "security_findings": []
+  },
+  "model_runtime": {
+    "model": "gemma4:e4b",
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "status": "online",
+    "provider": "Ollama (Local MLX Runner)",
+    "blocker": null
+  }
+}

@@ -433,6 +433,16 @@ const PULL_REQUESTS = (() => {
 
   /**
    * Render HTML for Observed Evidence and AI Conclusions
+   * Implements the 9-part structured report:
+   * 1. Overall Assessment
+   * 2. What Changed
+   * 3. Technical Findings
+   * 4. Potential Bugs and Risks
+   * 5. Security and Reliability
+   * 6. Test Evidence
+   * 7. Recommended Improvements
+   * 8. Final AI Recommendation
+   * 9. Evidence References
    */
   const renderStructuredReportHTML = (analysis) => {
     const evidence = analysis.observed_evidence || {};
@@ -440,197 +450,300 @@ const PULL_REQUESTS = (() => {
     const modelRuntime = analysis.model_runtime || ai.model_runtime || {};
     const findings = analysis.findings || [];
 
-    const isTestPass = evidence.has_test_evidence;
-    const testExecutionStatus = evidence.test_execution_status || "NOT_EXECUTED";
-    const testBadge = isTestPass
-      ? `<span class="status-badge merged" style="font-size: 11px;">✓ Test Files Present</span><span style="font-size: 10px; color: var(--color-text-secondary); margin-left: 4px;">(${testExecutionStatus})</span>`
-      : `<span class="status-badge closed" style="font-size: 11px;">⚠️ Missing Test Files</span><span style="font-size: 10px; color: var(--color-text-secondary); margin-left: 4px;">(${testExecutionStatus})</span>`;
-
-    const testFiles = evidence.test_files || [];
-    const filesList = evidence.files_list || [];
-    const sensitiveFiles = evidence.sensitive_files || [];
-    const recommendations = ai.recommendations || [];
-    const concerns = ai.architectural_concerns || [];
-    const references = ai.evidence_references || [];
-
     const isAiOnline = modelRuntime.status === "online" && ai.is_ai_generated;
     const runtimeBadgeText = isAiOnline
       ? "🤖 Gemma 4 E4B — Local Ollama"
       : "⚠️ Rule-Based Fallback (Ollama Offline)";
 
+    // 1. Overall Assessment
+    const overallAssessment = ai.overall_assessment || ai.technical_summary || analysis.analysis_summary || "Standard technical contribution.";
+
+    // 2. What Changed
+    const whatChanged = ai.what_changed || ai.technical_summary || `Modified ${evidence.files_changed_count ?? 1} file(s) (+${evidence.additions ?? 0} / -${evidence.deletions ?? 0}).`;
+
+    // 3. Technical Findings
+    const techFindings = ai.technical_findings || [];
+
+    // 4. Potential Bugs & Risks
+    const bugsAndRisks = ai.potential_bugs_and_risks || ai.architectural_concerns || [];
+
+    // 5. Security & Reliability
+    const secInfo = ai.security_and_reliability || {
+      has_security_concerns: analysis.risk_level === "HIGH",
+      summary: analysis.risk_level === "HIGH" ? "Elevated security risks detected." : "No critical security risks identified.",
+      concerns: []
+    };
+    const secConcerns = secInfo.concerns || [];
+
+    // 6. Test Evidence
+    const testEv = ai.test_evidence || {};
+    const executionStatus = testEv.execution_status || evidence.test_execution_status || "NOT_EXECUTED";
+    const testAssessment = testEv.assessment || ai.test_assessment || `Automated tests were ${executionStatus}.`;
+    const missingTests = testEv.missing_tests || [];
+    const testFiles = evidence.test_files || [];
+    const isTestPass = evidence.has_test_evidence;
+
+    // 7. Recommended Improvements
+    const recommendations = ai.recommended_improvements || ai.recommendations || [];
+
+    // 8. Final AI Recommendation
+    const finalRec = ai.final_ai_recommendation || (analysis.risk_level === "HIGH" ? "REQUEST CHANGES" : (analysis.risk_level === "MEDIUM" ? "NEEDS HUMAN REVIEW" : "APPROVE"));
+    const recReason = ai.recommendation_reason || overallAssessment;
+    let recBadgeClass = "approve";
+    let recIcon = "✓";
+    if (finalRec === "REQUEST CHANGES") {
+      recBadgeClass = "request-changes";
+      recIcon = "✕";
+    } else if (finalRec === "NEEDS HUMAN REVIEW") {
+      recBadgeClass = "human-review";
+      recIcon = "⚠️";
+    }
+
+    // 9. Evidence References
+    const references = ai.evidence_references || evidence.files_list || [];
+
     let html = `
-      <!-- 1. OBSERVED TECHNICAL EVIDENCE (FACTS & METRICS) -->
+      <!-- 1. OVERALL ASSESSMENT -->
       <div class="pr-section-card" style="border-left: 4px solid var(--color-primary);">
         <div class="pr-section-card__header">
           <span class="pr-section-card__title">
-            <span>🔍 1. Observed Technical Evidence</span>
-          </span>
-          <span style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase;">
-            Deterministic Ground Truth
-          </span>
-        </div>
-
-        <div class="pr-evidence-grid">
-          <div class="pr-evidence-item">
-            <div class="pr-evidence-item__label">Files Changed</div>
-            <div class="pr-evidence-item__value">${evidence.files_changed_count ?? analysis.files_changed ?? 1}</div>
-          </div>
-          <div class="pr-evidence-item">
-            <div class="pr-evidence-item__label">Lines Added / Removed</div>
-            <div class="pr-evidence-item__value">
-              <span style="color: #16a34a;">+${evidence.additions ?? 0}</span> / 
-              <span style="color: #dc2626;">-${evidence.deletions ?? 0}</span>
-            </div>
-          </div>
-          <div class="pr-evidence-item">
-            <div class="pr-evidence-item__label">Test Evidence Status</div>
-            <div style="margin-top: 4px;">${testBadge}</div>
-          </div>
-          <div class="pr-evidence-item">
-            <div class="pr-evidence-item__label">Sensitive Files</div>
-            <div class="pr-evidence-item__value" style="font-size: 12px;">
-              ${sensitiveFiles.length > 0 ? `<span style="color: #dc2626;">${sensitiveFiles.length} detected</span>` : '<span style="color: #16a34a;">None touched</span>'}
-            </div>
-          </div>
-        </div>
-
-        ${
-          testFiles.length > 0
-            ? `<div style="margin-top: var(--space-2); font-size: 12px;">
-                <strong>Identified Test Suites:</strong> 
-                ${testFiles.map((f) => `<span class="pr-file-tag" style="background: rgba(34,197,94,0.1); border-color: #86efac; color: #166534;">${escapeHtml(f)}</span>`).join("")}
-                <span style="font-size: 11px; color: var(--color-text-muted); margin-left: 6px;">[Execution: ${testExecutionStatus}]</span>
-              </div>`
-            : `<div style="margin-top: var(--space-2); font-size: 12px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 4px; border: 1px solid #fef3c7;">
-                <strong>Note:</strong> Pull request modifies application logic without adding or modifying test files in tests/ or test_*.py. Tests were ${testExecutionStatus}.
-              </div>`
-        }
-
-        ${
-          filesList.length > 0
-            ? `<details style="margin-top: var(--space-3); font-size: 12px; color: var(--color-text-secondary); cursor: pointer;">
-                <summary style="font-weight: var(--font-weight-medium); color: var(--color-text-primary);">View all ${filesList.length} modified file paths</summary>
-                <div style="margin-top: var(--space-2); max-height: 120px; overflow-y: auto;">
-                  ${filesList.map((f) => `<div class="pr-file-tag">${escapeHtml(f)}</div>`).join("")}
-                </div>
-              </details>`
-            : ""
-        }
-      </div>
-
-      <!-- 2. ACTUAL GEMMA AI ANALYSIS -->
-      <div class="pr-section-card" style="border-left: 4px solid ${analysis.risk_level === 'HIGH' ? '#dc2626' : (analysis.risk_level === 'MEDIUM' ? '#f59e0b' : '#16a34a')};">
-        <div class="pr-section-card__header">
-          <span class="pr-section-card__title">
-            <span>✨ 2. Actual Gemma AI Analysis</span>
+            <span>🎯 1. Overall Assessment</span>
           </span>
           <span class="model-runtime-badge ${isAiOnline ? '' : 'offline'}">
             ${escapeHtml(runtimeBadgeText)}
           </span>
         </div>
-
         ${
           modelRuntime.blocker
-            ? `<div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 4px; padding: 8px 12px; font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
+            ? `<div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 4px; padding: 6px 10px; font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
                 <strong>Runtime Note:</strong> ${escapeHtml(modelRuntime.blocker)}
               </div>`
             : ""
         }
-
-        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);">
-          <strong>Technical Summary:</strong> ${escapeHtml(ai.technical_summary || analysis.analysis_summary || "Standard PR change.")}
-        </div>
-
-        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-3);">
-          <strong>Test Assessment:</strong> ${escapeHtml(ai.test_assessment || "Static inspection. Tests have not been executed.")}
-        </div>
-
-        ${
-          concerns.length > 0
-            ? `<div style="font-size: 12px; margin-bottom: var(--space-2);">
-                <strong>Architectural Concerns:</strong>
-                <ul style="margin: 4px 0 0 16px; padding: 0;">
-                  ${concerns.map(c => `<li>${escapeHtml(typeof c === "string" ? c : JSON.stringify(c))}</li>`).join("")}
-                </ul>
-              </div>`
-            : ""
-        }
-
-        ${
-          recommendations.length > 0
-            ? `<div style="font-size: 12px; margin-bottom: var(--space-3); background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 8px 12px;">
-                <strong style="color: #166534;">Recommendations:</strong>
-                <ul style="margin: 4px 0 0 16px; padding: 0; color: #166534;">
-                  ${recommendations.map(r => `<li>${escapeHtml(typeof r === "string" ? r : JSON.stringify(r))}</li>`).join("")}
-                </ul>
-              </div>`
-            : ""
-        }
-
-        ${
-          references.length > 0
-            ? `<div style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3);">
-                <strong>Evidence References:</strong>
-                ${references.map(ref => `<code style="background: var(--color-bg); padding: 2px 6px; border-radius: 3px; margin-right: 4px;">${escapeHtml(typeof ref === "string" ? ref : JSON.stringify(ref))}</code>`).join("")}
-              </div>`
-            : ""
-        }
-
-        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-bg); padding: 8px 12px; border-radius: 4px;">
-          <span style="font-size: 12px; font-weight: var(--font-weight-semibold); text-transform: uppercase;">
-            Risk Assessment
-          </span>
-          <span class="review-badge ${analysis.risk_level === 'HIGH' ? 'changes_requested' : (analysis.risk_level === 'MEDIUM' ? 'pending' : 'approved')}">
-            ${analysis.risk_level} (Score: ${analysis.risk_score ?? 10}/100)
-          </span>
+        <div style="font-size: var(--font-size-sm); line-height: 1.5; color: var(--color-text-primary);">
+          ${escapeHtml(overallAssessment)}
         </div>
       </div>
 
-      <!-- 3. EVALUATED SIGNALS & FINDINGS -->
+      <!-- 2. WHAT CHANGED -->
       <div class="pr-section-card">
         <div class="pr-section-card__header">
           <span class="pr-section-card__title">
-            <span>📋 3. Evaluated Signals & Findings (${findings.length})</span>
+            <span>📝 2. What Changed</span>
+          </span>
+          <span style="font-size: 11px; color: var(--color-text-secondary);">
+            +${evidence.additions ?? 0} / -${evidence.deletions ?? 0} in ${evidence.files_changed_count ?? 1} file(s)
           </span>
         </div>
-
-        <div class="pr-analysis-findings">
-          ${
-            findings.length > 0
-              ? findings
-                  .map((finding) => {
-                    const sev = (finding.severity || "info").toLowerCase();
-                    const alertClass = sev === "caution" ? "danger" : (sev === "warning" ? "warning" : "info");
-                    return `
-                      <div class="alert alert-${alertClass}" style="margin-bottom: var(--space-2); padding: var(--space-3);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                          <strong style="font-size: 13px;">${escapeHtml(finding.title)}</strong>
-                          <span style="font-size: 10px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06);">
-                            ${escapeHtml(finding.category || "Signal")}
-                          </span>
-                        </div>
-                        <div style="font-size: 12px; margin-top: 4px; color: var(--color-text-secondary);">
-                          ${escapeHtml(finding.description || "")}
-                        </div>
-                        ${
-                          finding.evidence
-                            ? `<div style="font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(0,0,0,0.04); border-radius: 4px;">
-                                <strong>Evidence:</strong> ${escapeHtml(finding.evidence)}
-                              </div>`
-                            : ""
-                        }
-                      </div>
-                    `;
-                  })
-                  .join("")
-              : '<div style="font-size: 12px; color: var(--color-text-secondary);">No risk alerts or suspicious patterns identified.</div>'
-          }
+        <div style="font-size: var(--font-size-sm); line-height: 1.5; color: var(--color-text-primary); margin-bottom: var(--space-2);">
+          ${escapeHtml(whatChanged)}
         </div>
+        ${
+          (evidence.files_list || []).length > 0
+            ? `<div style="margin-top: 6px;">
+                ${(evidence.files_list || []).map(f => `<span class="pr-file-tag">${escapeHtml(f)}</span>`).join("")}
+              </div>`
+            : ""
+        }
+      </div>
 
-        <div class="pr-analysis-note" style="margin-top: var(--space-3); font-size: 11px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border); padding-top: var(--space-2);">
-          <strong>Maintainer Sovereignty:</strong> RAMPART analysis is strictly advisory and evidence-grounded. Maintainers retain complete authority over merge, review, and contributor decisions.
+      <!-- 3. TECHNICAL FINDINGS -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>🔍 3. Technical Findings (${techFindings.length})</span>
+          </span>
+        </div>
+        ${
+          techFindings.length > 0
+            ? techFindings.map(tf => `
+                <div class="finding-card">
+                  <div class="finding-card__header">
+                    <span class="finding-card__file">${escapeHtml(tf.file || "unknown")}</span>
+                    <span class="finding-card__loc">${escapeHtml(tf.location || "NOT VERIFIED")}</span>
+                  </div>
+                  <div style="font-weight: var(--font-weight-medium); margin-bottom: 4px;">
+                    ${escapeHtml(tf.issue || "")}
+                  </div>
+                  <div style="font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px;">
+                    <strong>Why it matters:</strong> ${escapeHtml(tf.why_it_matters || "")}
+                  </div>
+                  <div style="font-size: 12px; color: #166534; background: #f0fdf4; padding: 4px 8px; border-radius: 4px;">
+                    💡 <strong>Suggested Improvement:</strong> ${escapeHtml(tf.suggested_improvement || "")}
+                  </div>
+                </div>
+              `).join("")
+            : `<div style="font-size: 12px; color: var(--color-text-secondary); font-style: italic;">
+                No specific code defects or technical issues identified in the reviewed changes.
+              </div>`
+        }
+      </div>
+
+      <!-- 4. POTENTIAL BUGS AND RISKS -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>🐛 4. Potential Bugs and Risks</span>
+          </span>
+        </div>
+        ${
+          bugsAndRisks.length > 0
+            ? `<ul style="margin: 0 0 0 16px; padding: 0; font-size: 12px; line-height: 1.5;">
+                ${bugsAndRisks.map(b => `<li>${escapeHtml(typeof b === 'string' ? b : JSON.stringify(b))}</li>`).join("")}
+              </ul>`
+            : `<div style="font-size: 12px; color: var(--color-text-secondary);">
+                Zero runtime bugs or behavioral risk conditions observed in this diff.
+              </div>`
+        }
+      </div>
+
+      <!-- 5. SECURITY AND RELIABILITY -->
+      <div class="pr-section-card" style="border-left: 4px solid ${secInfo.has_security_concerns ? '#dc2626' : '#16a34a'};">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>🛡️ 5. Security & Reliability</span>
+          </span>
+          <span class="review-badge ${secInfo.has_security_concerns ? 'changes_requested' : 'approved'}">
+            ${secInfo.has_security_concerns ? '⚠️ Concerns Identified' : '✓ Verified Secure'}
+          </span>
+        </div>
+        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);">
+          ${escapeHtml(secInfo.summary || "Static security inspection completed.")}
+        </div>
+        ${
+          secConcerns.length > 0
+            ? `<ul style="margin: 4px 0 0 16px; padding: 0; font-size: 12px; color: #dc2626;">
+                ${secConcerns.map(c => `<li>${escapeHtml(c)}</li>`).join("")}
+              </ul>`
+            : ""
+        }
+      </div>
+
+      <!-- 6. TEST EVIDENCE -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>🧪 6. Test Evidence</span>
+          </span>
+          <span class="review-badge ${isTestPass ? 'approved' : 'pending'}" style="font-size: 10px;">
+            Execution: ${escapeHtml(executionStatus)}
+          </span>
+        </div>
+        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-2);">
+          ${escapeHtml(testAssessment)}
+        </div>
+        ${
+          testFiles.length > 0
+            ? `<div style="font-size: 12px; margin-bottom: 6px;">
+                <strong>Identified Test Suites:</strong> 
+                ${testFiles.map(f => `<span class="pr-file-tag" style="background: rgba(34,197,94,0.1); border-color: #86efac; color: #166534;">${escapeHtml(f)}</span>`).join("")}
+                <span style="font-size: 11px; color: var(--color-text-muted);">[Status: ${escapeHtml(executionStatus)}]</span>
+              </div>`
+            : ""
+        }
+        ${
+          missingTests.length > 0
+            ? `<div style="font-size: 12px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 4px; border: 1px solid #fef3c7; margin-top: 6px;">
+                <strong>Recommended Test Additions:</strong>
+                ${missingTests.map(t => `<span class="pr-file-tag" style="background: white; border-color: #fde68a;">${escapeHtml(t)}</span>`).join("")}
+              </div>`
+            : ""
+        }
+      </div>
+
+      <!-- 7. RECOMMENDED IMPROVEMENTS -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>💡 7. Recommended Improvements</span>
+          </span>
+        </div>
+        ${
+          recommendations.length > 0
+            ? `<ul style="margin: 0 0 0 16px; padding: 0; font-size: 12px; line-height: 1.5; color: var(--color-text-primary);">
+                ${recommendations.map(r => `<li>${escapeHtml(typeof r === 'string' ? r : JSON.stringify(r))}</li>`).join("")}
+              </ul>`
+            : `<div style="font-size: 12px; color: var(--color-text-secondary);">
+                No further technical improvements required. PR is clean and ready.
+              </div>`
+        }
+      </div>
+
+      <!-- 8. FINAL AI RECOMMENDATION -->
+      <div class="pr-section-card" style="border-left: 4px solid ${finalRec === 'APPROVE' ? '#16a34a' : (finalRec === 'REQUEST CHANGES' ? '#dc2626' : '#f59e0b')};">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>⚖️ 8. Final AI Recommendation</span>
+          </span>
+          <span class="ai-rec-badge ${recBadgeClass}">
+            ${recIcon} ${escapeHtml(finalRec)}
+          </span>
+        </div>
+        <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-3); line-height: 1.5;">
+          <strong>Reasoning:</strong> ${escapeHtml(recReason)}
+        </div>
+        <div style="font-size: 11px; color: var(--color-text-secondary); background: var(--color-bg); padding: 8px 12px; border-radius: 4px; border: 1px dashed var(--color-border);">
+          <strong>Maintainer Sovereignty:</strong> RAMPART AI analysis is strictly advisory. The repository maintainer retains ultimate authority over review, approval, and merging.
         </div>
       </div>
+
+      <!-- 9. EVIDENCE REFERENCES -->
+      <div class="pr-section-card">
+        <div class="pr-section-card__header">
+          <span class="pr-section-card__title">
+            <span>📌 9. Evidence References</span>
+          </span>
+          <span style="font-size: 11px; color: var(--color-text-secondary);">
+            Risk Score: ${analysis.risk_score ?? 10}/100 • ${analysis.risk_level || "LOW"}
+          </span>
+        </div>
+        <div style="font-size: 12px;">
+          ${
+            references.length > 0
+              ? references.map(ref => `<code style="background: var(--color-bg); padding: 3px 8px; border-radius: 4px; margin-right: 6px; margin-bottom: 4px; display: inline-block; border: 1px solid var(--color-border);">${escapeHtml(typeof ref === 'string' ? ref : JSON.stringify(ref))}</code>`).join("")
+              : '<span style="color: var(--color-text-secondary);">No external evidence references recorded.</span>'
+          }
+        </div>
+      </div>
+
+      <!-- 10. EVALUATED SIGNALS & NETWORK FINDINGS -->
+      ${
+        findings.length > 0
+          ? `<div class="pr-section-card">
+              <div class="pr-section-card__header">
+                <span class="pr-section-card__title">
+                  <span>📋 Evaluated Signals & Trust Network Findings (${findings.length})</span>
+                </span>
+              </div>
+              <div class="pr-analysis-findings">
+                ${findings.map(finding => {
+                  const sev = (finding.severity || "info").toLowerCase();
+                  const alertClass = sev === "caution" ? "danger" : (sev === "warning" ? "warning" : "info");
+                  return `
+                    <div class="alert alert-${alertClass}" style="margin-bottom: var(--space-2); padding: var(--space-3);">
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 13px;">${escapeHtml(finding.title)}</strong>
+                        <span style="font-size: 10px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06);">
+                          ${escapeHtml(finding.category || "Signal")}
+                        </span>
+                      </div>
+                      <div style="font-size: 12px; margin-top: 4px; color: var(--color-text-secondary);">
+                        ${escapeHtml(finding.description || "")}
+                      </div>
+                      ${
+                        finding.evidence
+                          ? `<div style="font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(0,0,0,0.04); border-radius: 4px;">
+                              <strong>Evidence:</strong> ${escapeHtml(finding.evidence)}
+                            </div>`
+                          : ""
+                      }
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>`
+          : ""
+      }
     `;
 
     return html;

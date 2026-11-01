@@ -334,6 +334,63 @@
         border: 1px solid #cbd5e1;
       }
 
+      /* AI Final Recommendation Badge */
+      .ai-rec-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: var(--radius-full);
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .ai-rec-badge.approve {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+      }
+      .ai-rec-badge.request-changes {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #f87171;
+      }
+      .ai-rec-badge.human-review {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+      }
+
+      /* Finding Card */
+      .finding-card {
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .finding-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      .finding-card__file {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-primary);
+      }
+      .finding-card__loc {
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        background: rgba(0,0,0,0.05);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
       .pr-date {
         font-size: var(--font-size-xs);
         color: var(--color-text-muted);
