@@ -165,8 +165,8 @@ async def sync_repository_from_github(conn: sqlite3.Connection, repo_id: int) ->
                         c_id = existing_c["id"]
                     else:
                         cursor.execute("""
-                            INSERT INTO contributors (github_id, username, avatar_url, profile_url, trust_score, status, first_seen_at, last_active_at)
-                            VALUES (?, ?, ?, ?, 50.0, 'NEW', ?, ?)
+                            INSERT INTO contributors (github_id, username, avatar_url, profile_url, trust_score, status, merged_prs, rejected_prs, first_seen_at, last_active_at)
+                            VALUES (?, ?, ?, ?, 50.0, 'BEGINNER', 0, 0, ?, ?)
                         """, (
                             user_data.get("id"),
                             username,
@@ -186,6 +186,9 @@ async def sync_repository_from_github(conn: sqlite3.Connection, repo_id: int) ->
                     state = gh_pr.get("state", "open")
                     if gh_pr.get("merged_at"):
                         state = "merged"
+                        cursor.execute("UPDATE contributors SET merged_prs = COALESCE(merged_prs, 0) + 1 WHERE id = ?", (c_id,))
+                    elif state == "closed":
+                        cursor.execute("UPDATE contributors SET rejected_prs = COALESCE(rejected_prs, 0) + 1 WHERE id = ?", (c_id,))
 
                     if existing_pr:
                         pr_id = existing_pr["id"]
@@ -257,3 +260,63 @@ async def sync_repository_from_github(conn: sqlite3.Connection, repo_id: int) ->
         "synced_contributors": synced_contributors,
         "synced_at": now
     }
+
+import asyncio
+import logging
+
+logger = logging.getLogger("rampart.sync")
+
+async def background_repo_sync_loop(interval_seconds: int = 60):
+    """
+    Background worker that incrementally syncs connected repositories every 60s.
+    Checks rate limits (x-ratelimit-remaining > 10) with bounded retries and exponential backoff.
+    """
+    from app.database import get_db
+    from app.config import GITHUB_TOKEN
+    import os
+
+    backoff = 1.0
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            token = os.getenv("GITHUB_TOKEN", GITHUB_TOKEN or "").strip()
+            if not token:
+                continue
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, full_name, last_synced_at FROM repositories")
+                repos = cursor.fetchall()
+                if not repos:
+                    continue
+
+                # Check rate limit first
+                headers = get_github_headers()
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    try:
+                        rate_res = await client.get("https://api.github.com/rate_limit", headers=headers)
+                        if rate_res.status_code == 200:
+                            rl_data = rate_res.json()
+                            remaining = rl_data.get("resources", {}).get("core", {}).get("remaining", 0)
+                            if remaining <= 10:
+                                logger.warning(f"GitHub rate limit low ({remaining} remaining). Pausing background sync.")
+                                await asyncio.sleep(120)
+                                continue
+                    except Exception as e:
+                        logger.debug(f"Rate limit probe skipped: {e}")
+
+                for repo in repos:
+                    repo_id = repo["id"]
+                    try:
+                        await sync_repository_from_github(conn, repo_id)
+                        backoff = 1.0
+                    except Exception as ex:
+                        logger.error(f"Error background syncing repo {repo['full_name']}: {ex}")
+                        backoff = min(backoff * 2.0, 60.0)
+                        await asyncio.sleep(backoff)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Background sync loop error: {e}")
+            await asyncio.sleep(30)
+

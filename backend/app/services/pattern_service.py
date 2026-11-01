@@ -1,10 +1,20 @@
 import sqlite3
 import re
 import json
+import hashlib
+import threading
 import httpx
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 from app.config import GITHUB_TOKEN, LOCAL_LLM_URL, LOCAL_LLM_MODEL
+
+# Sequential inference lock to prevent concurrent model thrashing on 16GB unified memory
+_inference_lock = threading.Lock()
+
+def calculate_pr_content_hash(title: str, body: str = "", files_count: int = 1, additions: int = 0, deletions: int = 0) -> str:
+    """Deterministic SHA-256 hash representing PR contents for fast cache checking."""
+    content_sig = f"{title or ''}:{body or ''}:{files_count}:{additions}:{deletions}"
+    return hashlib.sha256(content_sig.encode("utf-8")).hexdigest()
 
 def get_github_headers() -> Dict[str, str]:
     headers = {
@@ -187,35 +197,38 @@ def query_gemma_pr_analysis(
             "max_tokens": 2048
         }
 
-        with httpx.Client(timeout=45.0) as client:
-            resp = client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                choice = data.get("choices", [{}])[0]
-                message = choice.get("message", {})
-                raw_content = message.get("content", "").strip()
+        with _inference_lock:
+            with httpx.Client(timeout=45.0) as client:
+                resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choice = data.get("choices", [{}])[0]
+                    message = choice.get("message", {})
+                    raw_content = message.get("content", "").strip()
 
-                parsed_json = safe_parse_json(raw_content)
+                    parsed_json = safe_parse_json(raw_content)
 
-                # Validate expected schema
-                if isinstance(parsed_json, dict) and "technical_summary" in parsed_json:
-                    runtime_info["status"] = "online"
-                    runtime_info["blocker"] = None
-                    return runtime_info, parsed_json
+                    # Validate expected schema
+                    if isinstance(parsed_json, dict) and "technical_summary" in parsed_json:
+                        runtime_info["status"] = "online"
+                        runtime_info["blocker"] = None
+                        return runtime_info, parsed_json
     except Exception as e:
         runtime_info["status"] = "offline_fallback"
         runtime_info["blocker"] = f"Local Ollama endpoint ({LOCAL_LLM_URL}) unreachable or timed out: {type(e).__name__} ({str(e)}). Running RAMPART deterministic pattern engine."
 
     return runtime_info, None
 
-def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]:
+def analyze_pull_request(conn: sqlite3.Connection, pr_id: int, force: bool = False) -> Dict[str, Any]:
     """
     RAMPART PR Analysis Pipeline:
     1. Fetch live GitHub PR metadata & changed files
     2. Deterministic evidence engine (tests, sensitive paths, patterns, trust network)
-    3. Real local Gemma 4 E4B inference
-    4. Structured report generation (preserving evidence integrity)
-    5. SQLite persistence in pull_requests and alerts
+    3. Real local Gemma 4 E4B inference (serialized with lock)
+    4. PR Quality categorization (GOOD, AVERAGE, SPAM, FLAGGED)
+    5. Final Priority Decision (PRIORITY REVIEW, REVIEW — PROMISING CONTRIBUTION, NORMAL REVIEW, HIGH-RISK FLAG, SPAM)
+    6. Structured report generation (preserving evidence integrity)
+    7. SQLite persistence in pull_requests and alerts
     """
     cursor = conn.cursor()
     now = datetime.now(timezone.utc).isoformat()
@@ -273,6 +286,17 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
                 files.append({"filename": "tests/test_trust.py", "status": "added", "additions": 40, "deletions": 5, "patch": ""})
         else:
             files.append({"filename": "src/main.py", "status": "modified", "additions": additions, "deletions": deletions, "patch": ""})
+
+    # Content signature & fast caching check to eliminate redundant model inference on MacBook
+    content_hash = calculate_pr_content_hash(pr_title, pr_body, files_changed_count, additions, deletions)
+
+    if not force and "content_hash" in pr.keys() and pr["content_hash"] == content_hash and pr["analysis_data"]:
+        try:
+            cached_data = json.loads(pr["analysis_data"])
+            if isinstance(cached_data, dict) and "risk_level" in cached_data:
+                return cached_data
+        except Exception:
+            pass
 
     # 3. Categorize changed files (Deterministic Ground Truth)
     test_pattern = re.compile(r"(?:^|/)(?:test_[^/]+|[^/]+_test|tests/|spec/|__tests__/|test/)", re.IGNORECASE)
@@ -559,7 +583,33 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
             "security_findings": []
         }
 
-    # 7. Construct Observed Evidence (Guaranteed Ground Truth)
+    # 7. PR Quality Categorization & Maintainer Priority Decision
+    if len(duplicate_titles) >= 2 or (files_changed_count <= 1 and additions < 10 and not pr_body.strip()):
+        quality_category = "SPAM"
+    elif len(detected_code_risks) > 0 or len(denounces) > 0 or risk_level == "HIGH":
+        quality_category = "FLAGGED"
+    elif (has_test_files or len(doc_files) > 0 or (is_ai_generated and ai_risk_level == "LOW")) and len(detected_code_risks) == 0:
+        quality_category = "GOOD"
+    else:
+        quality_category = "AVERAGE"
+
+    # Maintainer Priority Decision Matrix
+    contrib_status = (pr["contributor_status"] or "NEUTRAL").upper()
+    if quality_category == "SPAM":
+        priority_decision = "SPAM"
+    elif quality_category == "FLAGGED" or contrib_status == "FLAGGED":
+        priority_decision = "HIGH-RISK FLAG"
+    elif quality_category == "GOOD":
+        if contrib_status in ["TRUSTED", "ESTABLISHED"]:
+            priority_decision = "PRIORITY REVIEW"
+        else:
+            priority_decision = "REVIEW — PROMISING CONTRIBUTION"
+    else:
+        priority_decision = "NORMAL REVIEW"
+
+    analysis_status = "completed" if is_ai_generated else "offline_fallback"
+
+    # 8. Construct Observed Evidence (Guaranteed Ground Truth)
     observed_evidence = {
         "files_changed_count": files_changed_count,
         "additions": additions,
@@ -587,6 +637,9 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         "title": pr_title,
         "risk_level": risk_level,
         "risk_score": risk_score,
+        "quality_category": quality_category,
+        "priority_decision": priority_decision,
+        "analysis_status": analysis_status,
         "analysis_summary": summary,
         "vouches_count": len(vouches),
         "denounces_count": len(denounces),
@@ -597,18 +650,37 @@ def analyze_pull_request(conn: sqlite3.Connection, pr_id: int) -> Dict[str, Any]
         "model_runtime": model_runtime
     }
 
-    # 8. Persist in SQLite
+    # 9. Persist in SQLite
     analysis_json = json.dumps(result)
     cursor.execute("""
         UPDATE pull_requests 
         SET risk_level = ?, 
+            quality_category = ?,
+            priority_decision = ?,
+            analysis_status = ?,
             analysis_summary = ?, 
             analysis_data = ?, 
             files_changed = ?, 
             additions = ?, 
             deletions = ?, 
+            content_hash = ?,
+            analyzed_at = ?,
             updated_at = ?
         WHERE id = ?
-    """, (risk_level, summary, analysis_json, files_changed_count, additions, deletions, now, pr_id))
+    """, (
+        risk_level,
+        quality_category,
+        priority_decision,
+        analysis_status,
+        summary,
+        analysis_json,
+        files_changed_count,
+        additions,
+        deletions,
+        content_hash,
+        now,
+        now,
+        pr_id
+    ))
 
     return result

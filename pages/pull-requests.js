@@ -197,7 +197,7 @@ const PULL_REQUESTS = (() => {
 
     if (filteredPullRequests.length === 0) {
       prTbody.innerHTML =
-        '<tr><td colspan="7" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">No pull requests match the selected filters.</td></tr>';
+        '<tr><td colspan="8" style="text-align: center; padding: var(--space-5); color: var(--color-text-secondary);">No pull requests match the selected filters.</td></tr>';
       return;
     }
 
@@ -205,18 +205,11 @@ const PULL_REQUESTS = (() => {
       .map((pr) => renderPRRow(pr))
       .join("");
 
-    // Attach event listeners for row actions
+    // Attach event listeners for row actions (Only View action is present)
     document.querySelectorAll(".btn-view-pr").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         openDetailsModal(btn.dataset.prId);
-      });
-    });
-
-    document.querySelectorAll(".btn-analyze-pr").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        handleAnalyze(btn.dataset.prId);
       });
     });
   };
@@ -243,6 +236,18 @@ const PULL_REQUESTS = (() => {
       riskBadge = '<span class="status-badge merged" style="margin-left: 6px; font-size: 10px;">LOW RISK</span>';
     }
 
+    // PR Quality Pill
+    const quality = (pr.quality_category || (pr.risk_level === "HIGH" ? "FLAGGED" : (pr.risk_level === "MEDIUM" ? "AVERAGE" : "GOOD"))).toUpperCase();
+    let qualityClass = "good";
+    if (quality === "FLAGGED") qualityClass = "flagged";
+    else if (quality === "SPAM") qualityClass = "spam";
+    else if (quality === "AVERAGE") qualityClass = "average";
+    const qualityPill = `<span class="quality-pill ${qualityClass}">${escapeHtml(quality)}</span>`;
+
+    // Contributor status badge without exposing raw numeric score
+    const contribStatus = (pr.contributor_status || "BEGINNER").toLowerCase();
+    const contribBadge = `<span class="contributor-badge ${contribStatus}">${escapeHtml(pr.contributor_status || "BEGINNER")}</span>`;
+
     return `
       <tr>
         <td>
@@ -258,11 +263,16 @@ const PULL_REQUESTS = (() => {
           <div class="pr-repo">${escapeHtml(repoName)}</div>
         </td>
         <td>
-          <span style="font-weight: var(--font-weight-medium);">${escapeHtml(authorName)}</span>
-          ${pr.contributor_trust_score ? `<span style="font-size: 11px; color: var(--color-text-secondary); margin-left: 4px;">(${pr.contributor_trust_score}/100)</span>` : ""}
+          <div style="display: flex; align-items: center; flex-wrap: wrap;">
+            <span style="font-weight: var(--font-weight-medium);">${escapeHtml(authorName)}</span>
+            ${contribBadge}
+          </div>
         </td>
         <td>
           <span class="status-badge ${statusVal}">${statusVal.charAt(0).toUpperCase() + statusVal.slice(1)}</span>
+        </td>
+        <td>
+          ${qualityPill}
         </td>
         <td>
           <span class="review-badge ${reviewStatus}">${
@@ -280,9 +290,6 @@ const PULL_REQUESTS = (() => {
           <div class="pr-actions">
             <button class="action-btn btn-view-pr" data-pr-id="${pr.id}" title="View details and evidence">
               👁️ View
-            </button>
-            <button class="action-btn btn-analyze-pr" data-pr-id="${pr.id}" title="Run PR analysis agent">
-              ✨ Analyze
             </button>
           </div>
         </td>
@@ -319,19 +326,52 @@ const PULL_REQUESTS = (() => {
     const authorName = pr.author || pr.contributor_username || "Unknown";
     const statusVal = (pr.status || pr.state || "open").toLowerCase();
     const reviewStatus = pr.review_status || (pr.risk_level === "HIGH" ? "changes_requested" : (statusVal === "merged" ? "approved" : "pending"));
+    const contributorStatus = pr.contributor_status || "BEGINNER";
 
     document.getElementById("modal-pr-title").textContent = pr.title;
     document.getElementById("modal-pr-number").textContent = `#${prNumber} in ${repoName}`;
 
+    // Priority Decision Banner Calculation
+    const priority = pr.priority_decision || (
+      pr.risk_level === "HIGH" ? "HIGH-RISK FLAG" :
+      (pr.quality_category === "GOOD" && (contributorStatus === "BEGINNER" || contributorStatus === "NEW") ? "REVIEW — PROMISING CONTRIBUTION" :
+      (pr.quality_category === "GOOD" ? "PRIORITY REVIEW" :
+      (pr.quality_category === "SPAM" ? "SPAM" : "NORMAL REVIEW")))
+    );
+
+    let bannerClass = "normal";
+    let bannerIcon = "📋";
+    if (priority.includes("PRIORITY")) {
+      bannerClass = "priority-review";
+      bannerIcon = "⭐";
+    } else if (priority.includes("PROMISING")) {
+      bannerClass = "promising";
+      bannerIcon = "🌱";
+    } else if (priority.includes("FLAG")) {
+      bannerClass = "flagged";
+      bannerIcon = "⚠️";
+    } else if (priority.includes("SPAM")) {
+      bannerClass = "spam";
+      bannerIcon = "🚫";
+    }
+
+    const priorityBannerHTML = `
+      <div class="priority-banner ${bannerClass}">
+        <span>${bannerIcon} ${escapeHtml(priority)}</span>
+        <span style="font-size: 11px; font-weight: normal; text-transform: uppercase;">Decision Recommendation</span>
+      </div>
+    `;
+
     // Render basic overview
     let detailsHTML = `
+      ${priorityBannerHTML}
       <div class="pr-section-card" style="margin-bottom: var(--space-4);">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3);">
           <div>
             <div class="pr-details-label">Author</div>
             <div style="font-weight: var(--font-weight-semibold);">${escapeHtml(authorName)}</div>
             <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">
-              Score: ${pr.contributor_trust_score ?? 50}/100 • ${pr.contributor_status || "NEW"}
+              Status: <span class="contributor-badge ${contributorStatus.toLowerCase()}">${escapeHtml(contributorStatus)}</span>
             </div>
           </div>
           <div>
@@ -345,9 +385,9 @@ const PULL_REQUESTS = (() => {
             }</span>
           </div>
           <div>
-            <div class="pr-details-label">RAMPART Risk Level</div>
-            <span class="review-badge ${pr.risk_level === 'HIGH' ? 'changes_requested' : (pr.risk_level === 'MEDIUM' ? 'pending' : 'approved')}">
-              ${pr.risk_level || "UNKNOWN"}
+            <div class="pr-details-label">Quality Category</div>
+            <span class="quality-pill ${(pr.quality_category || 'good').toLowerCase()}">
+              ${escapeHtml(pr.quality_category || "GOOD")}
             </span>
           </div>
         </div>

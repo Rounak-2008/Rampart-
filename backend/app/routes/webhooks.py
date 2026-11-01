@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 async def handle_github_webhook(
     request: Request,
     x_github_event: Optional[str] = Header(None),
+    x_github_delivery: Optional[str] = Header(None),
     x_hub_signature_256: Optional[str] = Header(None)
 ):
     body_bytes = await request.body()
@@ -24,11 +25,34 @@ async def handle_github_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
+    # Idempotency / duplicate check via X-GitHub-Delivery
+    if x_github_delivery:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM webhook_deliveries WHERE delivery_id = ?", (x_github_delivery,))
+            if cursor.fetchone():
+                return APIResponse(
+                    success=True,
+                    message=f"Delivery {x_github_delivery} already processed. Ignored duplicate."
+                )
+
     # Check ping
     if x_github_event == "ping":
+        if x_github_delivery:
+            with get_db() as conn:
+                conn.cursor().execute(
+                    "INSERT OR IGNORE INTO webhook_deliveries (delivery_id, event, processed_at) VALUES (?, ?, ?)",
+                    (x_github_delivery, "ping", now)
+                )
         return APIResponse(success=True, message="GitHub Webhook Ping received successfully.")
 
     if x_github_event != "pull_request":
+        if x_github_delivery:
+            with get_db() as conn:
+                conn.cursor().execute(
+                    "INSERT OR IGNORE INTO webhook_deliveries (delivery_id, event, processed_at) VALUES (?, ?, ?)",
+                    (x_github_delivery, x_github_event or "unknown", now)
+                )
         return APIResponse(success=True, message=f"Ignored event: {x_github_event}")
 
     action = payload.get("action")
@@ -42,6 +66,13 @@ async def handle_github_webhook(
 
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Record delivery ID for deduplication
+        if x_github_delivery:
+            cursor.execute(
+                "INSERT OR IGNORE INTO webhook_deliveries (delivery_id, event, processed_at) VALUES (?, ?, ?)",
+                (x_github_delivery, f"pull_request.{action}", now)
+            )
 
         # Find repository in DB
         cursor.execute("SELECT * FROM repositories WHERE full_name = ?", (repo_full_name,))
@@ -70,8 +101,8 @@ async def handle_github_webhook(
             cursor.execute("UPDATE contributors SET last_active_at = ? WHERE id = ?", (now, contributor_id))
         else:
             cursor.execute("""
-                INSERT INTO contributors (github_id, username, avatar_url, profile_url, trust_score, status, first_seen_at, last_active_at)
-                VALUES (?, ?, ?, ?, 50.0, 'NEW', ?, ?)
+                INSERT INTO contributors (github_id, username, avatar_url, profile_url, trust_score, status, merged_prs, rejected_prs, first_seen_at, last_active_at)
+                VALUES (?, ?, ?, ?, 50.0, 'BEGINNER', 0, 0, ?, ?)
             """, (
                 sender_data.get("id"),
                 username,
@@ -90,6 +121,14 @@ async def handle_github_webhook(
         state = pr_data.get("state", "open")
         if pr_data.get("merged"):
             state = "merged"
+
+        if action == "closed":
+            if pr_data.get("merged"):
+                state = "merged"
+                cursor.execute("UPDATE contributors SET merged_prs = COALESCE(merged_prs, 0) + 1 WHERE id = ?", (contributor_id,))
+            else:
+                state = "closed"
+                cursor.execute("UPDATE contributors SET rejected_prs = COALESCE(rejected_prs, 0) + 1 WHERE id = ?", (contributor_id,))
 
         if existing_pr:
             pr_id = existing_pr["id"]
@@ -112,7 +151,7 @@ async def handle_github_webhook(
         else:
             cursor.execute("""
                 INSERT INTO pull_requests (github_pr_id, repo_id, contributor_id, pr_number, title, body, html_url, diff_url, state, risk_level, files_changed, additions, deletions, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', 'UNKNOWN', ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNKNOWN', ?, ?, ?, ?, ?)
             """, (
                 pr_data.get("id"),
                 repo["id"],
@@ -122,6 +161,7 @@ async def handle_github_webhook(
                 pr_data.get("body", ""),
                 pr_data.get("html_url", ""),
                 pr_data.get("diff_url", ""),
+                state,
                 pr_data.get("changed_files", 0),
                 pr_data.get("additions", 0),
                 pr_data.get("deletions", 0),
@@ -130,9 +170,15 @@ async def handle_github_webhook(
             ))
             pr_id = cursor.lastrowid
 
-        # Recalculate contributor trust and run pattern analysis
+        # Recalculate contributor trust
         recalculate_contributor_trust(conn, contributor_id)
-        analysis_result = analyze_pull_request(conn, pr_id)
+
+        # Run pattern & Gemma AI analysis on open/modified PRs
+        analysis_result = {}
+        if action in ("opened", "reopened", "synchronize", "edited") or state == "open":
+            analysis_result = analyze_pull_request(conn, pr_id)
+        else:
+            analysis_result = {"status": state, "pr_id": pr_id}
 
         # Create notification
         cursor.execute("""
@@ -140,7 +186,7 @@ async def handle_github_webhook(
             VALUES ('PR', ?, ?, ?, 0, ?)
         """, (
             f"PR #{pr_number} {action} in {repo_full_name}",
-            f"{username} {action} PR #{pr_number}: {pr_data.get('title', '')[:50]}. Risk: {analysis_result.get('risk_level')}",
+            f"{username} {action} PR #{pr_number}: {pr_data.get('title', '')[:50]}. Risk: {analysis_result.get('risk_level', 'REVIEW')}",
             f"/pull-requests/{pr_id}",
             now
         ))

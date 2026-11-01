@@ -227,6 +227,113 @@
         color: var(--color-danger);
       }
 
+      /* PR Quality Pills */
+      .quality-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: var(--radius-full);
+        font-size: 11px;
+        font-weight: var(--font-weight-bold);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .quality-pill.good {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+      }
+      .quality-pill.average {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #7dd3fc;
+      }
+      .quality-pill.spam {
+        background-color: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #cbd5e1;
+      }
+      .quality-pill.flagged {
+        background-color: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+      }
+
+      /* Contributor Badges (No numeric score exposed) */
+      .contributor-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        font-size: 10px;
+        font-weight: var(--font-weight-semibold);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin-left: 6px;
+      }
+      .contributor-badge.beginner {
+        background-color: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+      }
+      .contributor-badge.established {
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+      }
+      .contributor-badge.trusted {
+        background-color: #faf5ff;
+        color: #7e22ce;
+        border: 1px solid #e9d5ff;
+      }
+      .contributor-badge.flagged {
+        background-color: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
+      .contributor-badge.neutral {
+        background-color: #f8fafc;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+      }
+
+      /* Priority Decision Banner */
+      .priority-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-4);
+        font-weight: var(--font-weight-bold);
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+      .priority-banner.priority-review {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        border: 1px solid #fcd34d;
+      }
+      .priority-banner.promising {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #166534;
+        border: 1px solid #86efac;
+      }
+      .priority-banner.normal {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+      }
+      .priority-banner.flagged {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+        border: 1px solid #f87171;
+      }
+      .priority-banner.spam {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #475569;
+        border: 1px solid #cbd5e1;
+      }
+
       .pr-date {
         font-size: var(--font-size-xs);
         color: var(--color-text-muted);
@@ -777,6 +884,7 @@
                   <th>Repository</th>
                   <th>Author</th>
                   <th>Status</th>
+                  <th>Quality</th>
                   <th>Review</th>
                   <th>Created</th>
                   <th>Actions</th>
@@ -784,7 +892,7 @@
               </thead>
               <tbody id="pr-tbody">
                 <tr>
-                  <td colspan="7" style="text-align: center; padding: var(--space-5);">
+                  <td colspan="8" style="text-align: center; padding: var(--space-5);">
                     <div class="loading-spinner" style="display: inline-block;"></div>
                     Loading pull requests...
                   </td>

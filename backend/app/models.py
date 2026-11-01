@@ -88,6 +88,9 @@ class PullRequestResponse(BaseModel):
     state: str
     status: Optional[str] = None # Frontend alias ("open", "merged", "closed")
     risk_level: str
+    quality_category: Optional[str] = "AVERAGE" # "GOOD", "AVERAGE", "SPAM", "FLAGGED"
+    priority_decision: Optional[str] = "NORMAL REVIEW" # "PRIORITY REVIEW", "REVIEW — PROMISING CONTRIBUTION", "NORMAL REVIEW", "HIGH-RISK FLAG", "SPAM"
+    analysis_status: Optional[str] = "completed" # "completed", "pending", "offline_fallback"
     review_status: Optional[str] = "pending" # Frontend compatibility ("pending", "approved", "changes_requested")
     analysis_summary: Optional[str] = None
     files_changed: int = 1
